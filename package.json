@@ -14,7 +14,7 @@
   },
   "scripts": {
     "dev": "next",
-    "dev:watch": "next-remote-watch ./posts",
+    "dev:watch": "next-remote-watch posts_example",
     "build": "next build",
     "start": "next start",
     "export": "next build && next export",
