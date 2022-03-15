@@ -16,7 +16,9 @@ export function GradientBackground({ variant, className }) {
 
 export default function Layout({ children }) {
   const setAppTheme = () => {
-    const darkMode = localStorage.getItem('theme') === 'dark';
+    // Com a linha comentada abaixo o site vai usar o theme dark por padrão.
+    // const darkMode = localStorage.getItem('theme') === 'dark';
+    const darkMode = true;
     const lightMode = localStorage.getItem('theme') === 'light';
 
     if (darkMode) {
