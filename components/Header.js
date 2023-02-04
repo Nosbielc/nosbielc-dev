@@ -9,6 +9,9 @@ export default function Header({ name }) {
           <a>{name}</a>
         </Link>
       </p>
+        <script async
+                src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7778661408131107"
+                crossOrigin="anonymous"></script>
     </header>
   );
 }
