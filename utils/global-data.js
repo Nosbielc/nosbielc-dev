@@ -4,7 +4,7 @@ export const getGlobalData = () => {
     : 'Cleibson Gomes';
   const blogTitle = process.env.BLOG_TITLE
     ? decodeURI(process.env.BLOG_TITLE)
-    : 'Code, Games And Coffee';
+    : 'Códigos, Jogos e Café';
   const footerText = process.env.BLOG_FOOTER_TEXT
     ? decodeURI(process.env.BLOG_FOOTER_TEXT)
     : 'Made with ❤️ in Quebec, CA.';
