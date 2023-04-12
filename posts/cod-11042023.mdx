@@ -12,7 +12,7 @@ Quando se trata de desenvolvimento de aplicações Java, o Spring Data JPA é um
 
 2. **Configurando o Spring Data JPA Specifications:**
 
-    Para começar a usar o Spring Data JPA Specifications, você precisa incluir a dependência do Spring Data JPA em seu projeto e configurar o repositório para estender o JpaRepository e o JpaSpecificationExecutor. Aqui está um exemplo de como configurar um repositório que suporte o Spring Data JPA Specifications
+    Para começar a usar o Spring Data JPA Specifications, você precisa incluir a dependência do Spring Data JPA em seu projeto e configurar o repositório para estender o JpaRepository e o JpaSpecificationExecutor. Aqui está um exemplo de como configurar um repositório que suporte o Spring Data JPA Specifications.
 
     ```java
     import org.springframework.data.jpa.repository.JpaRepository;
@@ -24,7 +24,7 @@ Quando se trata de desenvolvimento de aplicações Java, o Spring Data JPA é um
 
 3. **Criando Specifications:**
 
-    Para criar uma Specification, você deve implementar a interface Specification, que contém apenas um método chamado "toPredicate". O método toPredicate é responsável por gerar um predicado que representa a condição da consulta. Aqui está um exemplo de uma Specification que filtra usuários por nome
+    Para criar uma Specification, você deve implementar a interface Specification, que contém apenas um método chamado "toPredicate". O método toPredicate é responsável por gerar um predicado que representa a condição da consulta. Aqui está um exemplo de uma Specification que filtra usuários por nome.
 
     ```java
     import org.springframework.data.jpa.domain.Specification;
@@ -40,7 +40,7 @@ Quando se trata de desenvolvimento de aplicações Java, o Spring Data JPA é um
 
 4. **Combinando Specifications:**
 
-    Uma das principais vantagens do Spring Data JPA Specifications é a capacidade de combinar diferentes critérios de consulta usando operadores lógicos, como AND, OR e NOT. Para fazer isso, você pode usar o método "where" do JpaSpecificationExecutor, passando as Specifications combinadas como argumento. Por exemplo, para filtrar usuários por nome e idade, você pode fazer o seguinte
+    Uma das principais vantagens do Spring Data JPA Specifications é a capacidade de combinar diferentes critérios de consulta usando operadores lógicos, como AND, OR e NOT. Para fazer isso, você pode usar o método "where" do JpaSpecificationExecutor, passando as Specifications combinadas como argumento. Por exemplo, para filtrar usuários por nome e idade, você pode fazer o seguinte.
 
     ```java
     import org.springframework.data.jpa.domain.Specification;
@@ -66,17 +66,17 @@ Quando se trata de desenvolvimento de aplicações Java, o Spring Data JPA é um
 
 5. **Filtros Dinâmicos:**
 
-    Outra característica importante do Spring Data JPA Specifications é a possibilidade de criar filtros dinâmicos baseados em condições específicas. Isso é particularmente útil quando você precisa aplicar filtros com base em parâmetros opcionais ou desconhecidos no momento da implementação. Por exemplo, suponha que você queira filtrar usuários por nome e idade, mas ambos os parâmetros são opcionais. Você pode criar um filtro dinâmico usando Specifications da seguinte maneira
+    Outra característica importante do Spring Data JPA Specifications é a possibilidade de criar filtros dinâmicos baseados em condições específicas. Isso é particularmente útil quando você precisa aplicar filtros com base em parâmetros opcionais ou desconhecidos no momento da implementação. Por exemplo, suponha que você queira filtrar usuários por nome e idade, mas ambos os parâmetros são opcionais. Você pode criar um filtro dinâmico usando Specifications da seguinte maneira.
 
     ```java
     Specification<User> spec = Specification.where(null);
 
     if (name != null) {
-    spec = spec.and(UserSpecifications.hasName(name));
+        spec = spec.and(UserSpecifications.hasName(name));
     }
 
     if (age != null) {
-    spec = spec.and(UserSpecifications.hasAge(age));
+        spec = spec.and(UserSpecifications.hasAge(age));
     }
 
     List<User> users = userRepository.findAll(spec);
