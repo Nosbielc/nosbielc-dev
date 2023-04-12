@@ -8,10 +8,14 @@ export const getGlobalData = () => {
   const footerText = process.env.BLOG_FOOTER_TEXT
     ? decodeURI(process.env.BLOG_FOOTER_TEXT)
     : 'Made with ❤️ in Quebec, CA.';
+  const emailContact = process.env.EMAIL_CONTACT
+      ? decodeURI(process.env.EMAIL_CONTACT)
+      : 'blog@nosbielc.dev';
 
   return {
     name,
     blogTitle,
     footerText,
+    emailContact
   };
 };

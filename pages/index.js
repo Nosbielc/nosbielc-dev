@@ -46,7 +46,7 @@ export default function Index({ posts, globalData }) {
           ))}
         </ul>
       </main>
-      <Footer copyrightText={globalData.footerText} />
+      <Footer copyrightText={globalData.footerText} emailContact={globalData.emailContact}/>
       <GradientBackground
         variant="large"
         className="fixed top-20 opacity-40 dark:opacity-60"

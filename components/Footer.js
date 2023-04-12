@@ -77,9 +77,10 @@ const ThemeSwitcher = () => {
   );
 };
 
-export default function Footer({ copyrightText }) {
+export default function Footer({ copyrightText, emailContact }) {
   return (
     <footer className="py-16 flex flex-col items-center">
+    <p className="dark:text-white mb-3 font-bold opacity-60">{emailContact}</p>
       <p className="dark:text-white uppercase mb-3 font-bold opacity-60">
         {copyrightText}
       </p>
