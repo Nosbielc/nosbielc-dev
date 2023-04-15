@@ -10,7 +10,7 @@ export const getGlobalData = () => {
     : 'Made with ❤️ in Quebec, CA.';
   const emailContact = process.env.EMAIL_CONTACT
       ? decodeURI(process.env.EMAIL_CONTACT)
-      : 'blog@nosbielc.dev';
+      : 'blog@nosbielc.com';
 
   return {
     name,
