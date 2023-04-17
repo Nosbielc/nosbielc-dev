@@ -1,0 +1,111 @@
+---
+title: "Desvendando o Spring Data Rest: Um Guia Prático para o Spring Boot - Parte 1"
+description: "Aprenda a utilizar o Spring Data Rest no Spring Boot, passo a passo, para criar uma API REST simples e eficiente em minutos. Torne-se um mestre em desenvolvimento web com este guia completo!"
+date: Apr 17 2023
+---
+
+O Spring Data Rest é um projeto da família Spring Boot que facilita a criação de APIs RESTful. Ele permite que você exponha seus repositórios JPA como endpoints REST sem precisar escrever muitas linhas de código.
+
+1. _Pré-requisitos_
+
+    - Conhecimento básico de Java
+    - Conhecimento básico de Spring Boot
+    - JDK 8 ou superior
+    - IDE de sua preferência (Eclipse, IntelliJ IDEA, etc.)
+    - Maven ou Gradle
+
+2. **Configurando o projeto**
+
+    Para começar, crie um novo projeto Spring Boot usando o Spring Initializr [Spring.io](https://start.spring.io/). Selecione as seguintes dependências:
+
+    - Spring Web
+    - Spring Data JPA
+    - Spring Data REST
+    - H2 Database
+
+3. **Criando a entidade**
+
+    Crie uma classe chamada "User" em um pacote chamado "entities". Essa classe será a entidade que representará nossos usuarios.
+
+    ```java
+        import javax.persistence.Entity;
+        import javax.persistence.GeneratedValue;
+        import javax.persistence.GenerationType;
+        import javax.persistence.Id;
+
+        @Entity
+        public class User {
+
+            @Id
+            @GeneratedValue(strategy = GenerationType.IDENTITY)
+            private Long id;
+            private String firstName;
+            private String lastName;
+            private String email;
+            private Integer age;
+
+            // Getters e Setters com lombok por favor
+        }
+    ```
+
+4. **Criando o repositório**
+
+    Crie uma interface chamada "UserRepository" em um pacote chamado "repositories". Essa interface irá estender o JpaRepository e habilitará o Spring Data Rest a expor os endpoints REST automaticamente.
+
+    ```java
+        import com.nosbielc.blogspringdatarest.infrastructure.persistence.entities.User;
+        import org.springframework.data.jpa.repository.JpaRepository;
+        import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+        import org.springframework.data.repository.CrudRepository;
+        import org.springframework.data.rest.core.annotation.RepositoryRestResource;
+
+        @RepositoryRestResource
+        public interface UserRepository extends JpaRepository<User, Long>, CrudRepository<User, Long>,
+                JpaSpecificationExecutor<User> {
+        }
+    ```
+
+5. **Configurando o banco de dados**
+
+    No arquivo "application.properties", adicione as seguintes linhas para configurar o banco de dados H2:
+
+    ```properties
+        spring.flyway.enabled=false
+
+        # conf db in memory H2
+        spring.jpa.hibernate.ddl-auto=create
+        spring.datasource.driver-class-name=org.h2.Driver
+        spring.datasource.url=jdbc:h2:mem:db;DB_CLOSE_DELAY=-1
+        spring.datasource.username=sa
+        spring.datasource.password=sa
+
+        spring.jpa.show-sql                                 = false
+        spring.jpa.properties.hibernate.format_sql          = false
+        spring.jpa.properties.hibernate.use_sql_comments    = false
+        spring.jpa.properties.hibernate.type                = none
+
+        spring.jpa.properties.hibernate.dialect     = org.hibernate.dialect.H2Dialect
+
+        # Hikari Conf
+        spring.datasource.hikari.maximum-pool-size          = 25
+
+        spring.data.rest.basePath=/api/v1
+    ```
+
+6. **Testando a aplicação**
+
+    Inicie a aplicação e acesse o console do H2 no navegador: [H2 Console](http://localhost:8080/h2-console). Conecte-se ao banco de dados usando as credenciais configuradas no "application.properties".
+
+    Agora, você pode acessar os endpoints REST para criar, atualizar, excluir e buscar usuarios. Por exemplo, para listar todos os usuarios, acesse: [Listar Usuarios](http://localhost:8080/api/v1/users).
+
+---
+
+Conclusão
+
+Até o item 6 vimos como usar o Spring Data Rest no Spring Boot para criar uma API REST simples e eficiente em poucos minutos. Aproveite esse recurso para acelerar o desenvolvimento de suas aplicações e concentre-se na lógica do negócio, deixando que o Spring Data Rest cuide das operações básicas de CRUD (Create, Read, Update e Delete) para você.
+
+Além disso, o Spring Data Rest oferece recursos adicionais, como paginação e classificação, personalização de endpoints, validação e muito mais. Não se esqueça de explorar a documentação oficial [Doc Spring](https://docs.spring.io/spring-data/rest/docs/current/reference/html/) para aprender mais sobre todas as funcionalidades disponíveis e como tirar o máximo proveito dessa poderosa ferramenta.
+
+_Acesse aqui os fontes deste post_ [link](https://github.com/Nosbielc/blog-spring-data-rest)
+
+Agora que você tem uma base sólida sobre como trabalhar com o Spring Data Rest no Spring Boot, pode expandir seus conhecimentos, explorando outras partes do ecossistema Spring e criando aplicações web mais complexas e robustas. Boa sorte e bons estudos!
