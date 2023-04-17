@@ -1,0 +1,91 @@
+---
+title: "Desvendando o Spring Data Rest: Um Guia Prático para o Spring Boot - Parte 2"
+description: "Aprenda a utilizar o Spring Data Rest no Spring Boot, passo a passo, para criar uma API REST simples e eficiente em minutos. Torne-se um mestre em desenvolvimento web com este guia completo!"
+date: Apr 18 2023
+---
+
+Este post tem inicio [aqui](/posts/cod-17042023)
+
+Aprofundando-se no Spring Data Rest
+
+Nesta seção, vamos explorar algumas funcionalidades avançadas do Spring Data Rest para melhorar ainda mais nossa API REST.
+
+1. _Personalizando a resposta JSON_
+
+    Em alguns casos, você pode querer personalizar a resposta JSON para atender às suas necessidades específicas. O Spring Data Rest permite fazer isso com projeções e excertos.
+
+    Projeções permitem selecionar quais propriedades da entidade serão expostas na resposta JSON. Crie uma interface chamada "UsersResume" em um pacote chamado "projections" e adicione o seguinte conteúdo:
+
+    ```java
+        import com.nosbielc.blogspringdatarest.infrastructure.persistence.entities.User;
+        import org.springframework.beans.factory.annotation.Value;
+        import org.springframework.data.rest.core.config.Projection;
+
+        @Projection(name = "usersResume", types = { User.class })
+        public interface UsersResume {
+
+            Long getId();
+
+            @Value("#{target.firstName} #{target.lastName}")
+            String getFullName();
+
+            String getEmail();
+            Integer getAge();
+
+        }
+    ```
+
+    Agora, você pode acessar a projeção "usersResume" no endpoint: [Lista de Usuarios com projeção personalizada](http://localhost:8080/api/v1/users?projection=usersResume).
+
+2. _Validação de dados_
+
+    A validação de dados é crucial para garantir a qualidade e a integridade das informações em sua API. Você pode usar o Bean Validation do Java para validar os dados de entrada em sua API REST.
+
+    Adicione a dependência do Hibernate Validator no seu arquivo pom.xml:
+
+    ```xml
+       <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+    ```
+
+    Atualize a classe "User" com as anotações de validação:
+
+    ```java
+        // ...
+        import javax.validation.constraints.NotNull;
+        import javax.validation.constraints.Size;
+        // ...
+
+        @Entity
+        public class User {
+
+            // ...
+            @NotNull
+            @Size(min = 4, max = 255)
+            private String firstName;
+            @NotNull
+            @Size(min = 4, max = 255)
+            private String lastName;
+            // ...
+        }
+   ```
+
+    Agora, quando você tentar criar ou atualizar um usuario com dados inválidos, a API retornará um erro de validação.
+
+---
+
+Conclusão
+
+Neste tutorial, exploramos algumas funcionalidades avançadas do Spring Data Rest, como personalização de resposta JSON, validação de dados. Esses recursos podem ajudar a tornar sua API REST mais robusta, confiável e segura.
+
+No entanto, o ecossistema Spring oferece ainda mais possibilidades. Por exemplo, você pode integrar sua API com o Spring HATEOAS para adicionar hiperlinks e facilitar a navegação entre recursos relacionados. Outra opção é adicionar suporte para versionamento de API, o que permite que você faça mudanças significativas em sua API sem quebrar aplicativos clientes existentes.
+
+Também vale a pena explorar outras partes do ecossistema Spring, como o Spring Cache para melhorar o desempenho da API, o Spring Cloud para criar soluções de microserviços e o Spring Batch para processamento em lote.
+
+Com o Spring Boot e o Spring Data Rest, você tem uma base sólida para criar APIs REST de alta qualidade. Continue aprimorando suas habilidades e conhecimentos, e não se esqueça de acompanhar as atualizações e novidades da comunidade Spring para se manter atualizado sobre as melhores práticas e novas funcionalidades.
+
+Lembre-se de que a chave para se tornar um desenvolvedor Spring Boot eficiente é a prática constante. Com o tempo e a experiência, você se sentirá cada vez mais confortável com as diversas ferramentas e recursos disponíveis, tornando-se um profissional altamente qualificado no desenvolvimento de aplicações web modernas e escaláveis.
+
+_Acesse aqui os fontes deste post_ [link](https://github.com/Nosbielc/blog-spring-data-rest)
