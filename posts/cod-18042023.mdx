@@ -17,22 +17,22 @@ Nesta seção, vamos explorar algumas funcionalidades avançadas do Spring Data 
     Projeções permitem selecionar quais propriedades da entidade serão expostas na resposta JSON. Crie uma interface chamada "UsersResume" em um pacote chamado "projections" e adicione o seguinte conteúdo:
 
     ```java
-        import com.nosbielc.blogspringdatarest.infrastructure.persistence.entities.User;
-        import org.springframework.beans.factory.annotation.Value;
-        import org.springframework.data.rest.core.config.Projection;
+    import com.nosbielc.blogspringdatarest.infrastructure.persistence.entities.User;
+    import org.springframework.beans.factory.annotation.Value;
+    import org.springframework.data.rest.core.config.Projection;
 
-        @Projection(name = "usersResume", types = { User.class })
-        public interface UsersResume {
+    @Projection(name = "usersResume", types = { User.class })
+    public interface UsersResume {
 
-            Long getId();
+        Long getId();
 
-            @Value("#{target.firstName} #{target.lastName}")
-            String getFullName();
+        @Value("#{target.firstName} #{target.lastName}")
+        String getFullName();
 
-            String getEmail();
-            Integer getAge();
+        String getEmail();
+        Integer getAge();
 
-        }
+    }
     ```
 
     Agora, você pode acessar a projeção "usersResume" no endpoint: [Lista de Usuarios com projeção personalizada](http://localhost:8080/api/v1/users?projection=usersResume).
@@ -44,39 +44,39 @@ Nesta seção, vamos explorar algumas funcionalidades avançadas do Spring Data 
     Adicione a dependência do Hibernate Validator no seu arquivo pom.xml:
 
     ```xml
-       <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
+   <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
     ```
 
     Atualize a classe "User" com as anotações de validação:
 
     ```java
-        // ...
-        import javax.validation.constraints.NotNull;
-        import javax.validation.constraints.Size;
-        // ...
+    // ...
+    import javax.validation.constraints.NotNull;
+    import javax.validation.constraints.Size;
+    // ...
 
-        @Entity
-        public class User {
+    @Entity
+    public class User {
 
-            // ...
-            @NotNull
-            @Size(min = 4, max = 255)
-            private String firstName;
-            @NotNull
-            @Size(min = 4, max = 255)
-            private String lastName;
-            // ...
-        }
+        // ...
+        @NotNull
+        @Size(min = 4, max = 255)
+        private String firstName;
+        @NotNull
+        @Size(min = 4, max = 255)
+        private String lastName;
+        // ...
+    }
    ```
 
     Agora, quando você tentar criar ou atualizar um usuario com dados inválidos, a API retornará um erro de validação.
 
 ---
 
-Conclusão
+**Conclusão**
 
 Neste tutorial, exploramos algumas funcionalidades avançadas do Spring Data Rest, como personalização de resposta JSON, validação de dados. Esses recursos podem ajudar a tornar sua API REST mais robusta, confiável e segura.
 
