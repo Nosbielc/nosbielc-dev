@@ -28,24 +28,24 @@ O Spring Data Rest é um projeto da família Spring Boot que facilita a criaçã
     Crie uma classe chamada "User" em um pacote chamado "entities". Essa classe será a entidade que representará nossos usuarios.
 
     ```java
-        import javax.persistence.Entity;
-        import javax.persistence.GeneratedValue;
-        import javax.persistence.GenerationType;
-        import javax.persistence.Id;
+    import javax.persistence.Entity;
+    import javax.persistence.GeneratedValue;
+    import javax.persistence.GenerationType;
+    import javax.persistence.Id;
 
-        @Entity
-        public class User {
+    @Entity
+    public class User {
 
-            @Id
-            @GeneratedValue(strategy = GenerationType.IDENTITY)
-            private Long id;
-            private String firstName;
-            private String lastName;
-            private String email;
-            private Integer age;
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+        private String firstName;
+        private String lastName;
+        private String email;
+        private Integer age;
 
-            // Getters e Setters com lombok por favor
-        }
+        // Getters e Setters com lombok por favor
+    }
     ```
 
 4. **Criando o repositório**
@@ -53,16 +53,16 @@ O Spring Data Rest é um projeto da família Spring Boot que facilita a criaçã
     Crie uma interface chamada "UserRepository" em um pacote chamado "repositories". Essa interface irá estender o JpaRepository e habilitará o Spring Data Rest a expor os endpoints REST automaticamente.
 
     ```java
-        import com.nosbielc.blogspringdatarest.infrastructure.persistence.entities.User;
-        import org.springframework.data.jpa.repository.JpaRepository;
-        import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
-        import org.springframework.data.repository.CrudRepository;
-        import org.springframework.data.rest.core.annotation.RepositoryRestResource;
+    import com.nosbielc.blogspringdatarest.infrastructure.persistence.entities.User;
+    import org.springframework.data.jpa.repository.JpaRepository;
+    import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+    import org.springframework.data.repository.CrudRepository;
+    import org.springframework.data.rest.core.annotation.RepositoryRestResource;
 
-        @RepositoryRestResource
-        public interface UserRepository extends JpaRepository<User, Long>, CrudRepository<User, Long>,
-                JpaSpecificationExecutor<User> {
-        }
+    @RepositoryRestResource
+    public interface UserRepository extends JpaRepository<User, Long>, CrudRepository<User, Long>,
+            JpaSpecificationExecutor<User> {
+    }
     ```
 
 5. **Configurando o banco de dados**
@@ -70,26 +70,26 @@ O Spring Data Rest é um projeto da família Spring Boot que facilita a criaçã
     No arquivo "application.properties", adicione as seguintes linhas para configurar o banco de dados H2:
 
     ```properties
-        spring.flyway.enabled=false
+    spring.flyway.enabled=false
 
-        # conf db in memory H2
-        spring.jpa.hibernate.ddl-auto=create
-        spring.datasource.driver-class-name=org.h2.Driver
-        spring.datasource.url=jdbc:h2:mem:db;DB_CLOSE_DELAY=-1
-        spring.datasource.username=sa
-        spring.datasource.password=sa
+    # conf db in memory H2
+    spring.jpa.hibernate.ddl-auto=create
+    spring.datasource.driver-class-name=org.h2.Driver
+    spring.datasource.url=jdbc:h2:mem:db;DB_CLOSE_DELAY=-1
+    spring.datasource.username=sa
+    spring.datasource.password=sa
 
-        spring.jpa.show-sql                                 = false
-        spring.jpa.properties.hibernate.format_sql          = false
-        spring.jpa.properties.hibernate.use_sql_comments    = false
-        spring.jpa.properties.hibernate.type                = none
+    spring.jpa.show-sql                                 = false
+    spring.jpa.properties.hibernate.format_sql          = false
+    spring.jpa.properties.hibernate.use_sql_comments    = false
+    spring.jpa.properties.hibernate.type                = none
 
-        spring.jpa.properties.hibernate.dialect     = org.hibernate.dialect.H2Dialect
+    spring.jpa.properties.hibernate.dialect     = org.hibernate.dialect.H2Dialect
 
-        # Hikari Conf
-        spring.datasource.hikari.maximum-pool-size          = 25
+    # Hikari Conf
+    spring.datasource.hikari.maximum-pool-size          = 25
 
-        spring.data.rest.basePath=/api/v1
+    spring.data.rest.basePath=/api/v1
     ```
 
 6. **Testando a aplicação**
@@ -100,7 +100,7 @@ O Spring Data Rest é um projeto da família Spring Boot que facilita a criaçã
 
 ---
 
-Conclusão
+**Conclusão**
 
 Até o item 6 vimos como usar o Spring Data Rest no Spring Boot para criar uma API REST simples e eficiente em poucos minutos. Aproveite esse recurso para acelerar o desenvolvimento de suas aplicações e concentre-se na lógica do negócio, deixando que o Spring Data Rest cuide das operações básicas de CRUD (Create, Read, Update e Delete) para você.
 
