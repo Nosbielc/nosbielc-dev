@@ -13,6 +13,22 @@ export const postFilePaths = fs
   // Only include md(x) files
   .filter((path) => /\.mdx?$/.test(path));
 
+export const postRecursiveFilePaths = () => {
+  const mdxFiles = [];
+  const items = fs.readdirSync(POSTS_PATH , { withFileTypes: true });
+
+  items.forEach(item => {
+    const fullPath = path.join(POSTS_PATH, item.name);
+    if (item.isDirectory()) {
+      mdxFiles.push(postRecursiveFilePaths(fullPath));
+    } else if (item.isFile() && path.extname(item.name) === '.mdx') {
+      mdxFiles.push(fullPath);
+    }
+  });
+
+  return mdxFiles;
+};
+
 export const sortPostsByDate = (posts) => {
   return posts.sort((a, b) => {
     const aDate = new Date(a.data.date);
@@ -90,4 +106,21 @@ export const getPreviousPostBySlug = (slug) => {
     title: post.data.title,
     slug: previousPostSlug,
   };
+};
+
+
+export const postFilePathsNew = (directory) => {
+  const mdxFiles = [];
+  const items = fs.readdirSync(directory , { withFileTypes: true });
+
+  items.forEach(item => {
+    const fullPath = path.join(directory, item.name);
+    if (item.isDirectory()) {
+      mdxFiles.push(postFilePathsNew(fullPath));
+    } else if (item.isFile() && path.extname(item.name) === '.mdx') {
+      mdxFiles.push(fullPath);
+    }
+  });
+
+  return mdxFiles;
 };

@@ -32,6 +32,10 @@ const themesConfig = plugin(function ({ addComponents }) {
 });
 
 module.exports = {
+  i18n: {
+    locales: ["pt-BR", "fr"],
+    defaultLocale: "pt-BR",
+  },
   theme: {
     extend: {
       backgroundImage: {
