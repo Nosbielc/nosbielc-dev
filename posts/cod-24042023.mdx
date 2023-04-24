@@ -1,0 +1,259 @@
+---
+title: "Resilience4J e Spring Boot: Construindo aplicações robustas e resilientes"
+description: "Descubra como utilizar o Resilience4J com o Spring Boot para criar aplicações mais resistentes a falhas e resilientes."
+date: Apr 24 2023
+---
+
+Hoje, vamos falar sobre Resilience4J, uma biblioteca de tolerância a falhas leve e fácil de usar, e como implementá-la em conjunto com o Spring Boot para construir aplicações mais robustas e resilientes.
+
+1. _O que é Resilience4J?_
+
+    Resilience4J é uma biblioteca de tolerância a falhas para Java 8+, baseada nos padrões de projeto de resiliência do Netflix Hystrix. Ela oferece vários módulos, como Circuit Breaker, Rate Limiter, Retry e Bulkhead, que ajudam a criar aplicações mais resilientes e a lidar com falhas temporárias ou permanentes em serviços dependentes.
+
+2. _Integrando Resilience4J com Spring Boot_
+
+    Para começar, adicione as dependências necessárias ao seu arquivo pom.xml:
+
+     ```xml
+     <dependencies>
+         <dependency>
+             <groupId>org.springframework.boot</groupId>
+             <artifactId>spring-boot-starter-actuator</artifactId>
+         </dependency>
+         <dependency>
+             <groupId>org.springframework.boot</groupId>
+             <artifactId>spring-boot-starter-aop</artifactId>
+         </dependency>
+
+         <dependency>
+             <groupId>org.springframework.boot</groupId>
+             <artifactId>spring-boot-devtools</artifactId>
+             <scope>runtime</scope>
+             <optional>true</optional>
+         </dependency>
+         <dependency>
+             <groupId>org.springframework.boot</groupId>
+             <artifactId>spring-boot-configuration-processor</artifactId>
+             <optional>true</optional>
+         </dependency>
+         <dependency>
+             <groupId>org.projectlombok</groupId>
+             <artifactId>lombok</artifactId>
+             <optional>true</optional>
+         </dependency>
+         <dependency>
+             <groupId>org.springframework.boot</groupId>
+             <artifactId>spring-boot-starter-test</artifactId>
+             <scope>test</scope>
+         </dependency>
+
+         <!-- https://mvnrepository.com/artifact/io.github.resilience4j/resilience4j-spring-boot3 -->
+         <dependency>
+             <groupId>io.github.resilience4j</groupId>
+             <artifactId>resilience4j-spring-boot3</artifactId>
+             <version>2.0.2</version>
+         </dependency>
+
+         <dependency>
+             <groupId>org.springframework.boot</groupId>
+             <artifactId>spring-boot-starter-data-jpa</artifactId>
+         </dependency>
+         <dependency>
+             <groupId>org.springframework.boot</groupId>
+             <artifactId>spring-boot-starter-data-rest</artifactId>
+         </dependency>
+         <dependency>
+             <groupId>org.springframework.boot</groupId>
+             <artifactId>spring-boot-starter-validation</artifactId>
+         </dependency>
+         <dependency>
+             <groupId>org.springframework.boot</groupId>
+             <artifactId>spring-boot-starter-web</artifactId>
+         </dependency>
+
+         <dependency>
+             <groupId>com.h2database</groupId>
+             <artifactId>h2</artifactId>
+             <scope>runtime</scope>
+         </dependency>
+
+     </dependencies>
+   ```
+
+    Agora, você pode configurar o Resilience4J no arquivo application.yml:
+
+     ```yaml
+     resilience4j:
+         circuitbreaker:
+             instances:
+                 UserService:
+                     slidingWindowSize: 10
+                     failureRateThreshold: 50
+                     waitDurationInOpenState: 1000
+                     slowCallRateThreshold: 50
+                     slowCallDurationThreshold: 500
+                     permittedNumberOfCallsInHalfOpenState: 3
+                     automaticTransitionFromOpenToHalfOpenEnabled: true
+                     ratelimiter:
+                     instances:
+                     UserService:
+                     limitForPeriod: 10
+                     limitRefreshPeriod: 1000
+                     timeoutDuration: 0
+         retry:
+             instances:
+                 UserService:
+                     maxAttempts: 3
+                     waitDuration: 1000
+                     retryExceptions:
+                     - java.io.IOException
+         bulkhead:
+             instances:
+                 UserService:
+                     maxConcurrentCalls: 5
+                     maxWaitDuration: 500
+     ```
+
+    Vamos criar um exemplo simples de como usar o Resilience4J com Spring Boot. Primeiro, crie uma interface UserService:
+
+     ```java
+     public interface UserService {
+         User login(Long id);
+     }
+        ```
+
+    Em seguida, implemente a interface UserService:
+
+     ```java
+     @Service
+     @RequiredArgsConstructor
+     public class UserServiceImpl implements UserService {
+
+         private final UserRepository userRepository;
+
+         @Override
+         public User login(Long id) {
+             return userRepository.findById(id).orElseThrow();
+         }
+     }
+     ```
+
+    Agora, você pode criar um CircuitBreaker e um RateLimiter para o serviço usando anotações:
+
+     ```java
+     @Service
+     @RequiredArgsConstructor
+     public class ResilientUserService implements UserService {
+
+         private final UserService userService;
+
+         @CircuitBreaker(name = "userService", fallbackMethod = "fallbackCircuitBreaker")
+         @Retry(name = "userService", fallbackMethod = "fallbackRetry")
+         @Bulkhead(name = "userService")
+         @RateLimiter(name = "userService")
+         @Override
+         public User login(Long id) {
+             return userService.login(id);
+         }
+
+         private User fallbackCircuitBreaker(Throwable throwable){
+             return User.builder().withAge(1000).withId(-1L).withEmail("default@email.com").withFirstName("CircuitBreaker").withLastName("Sem nome de famila").build();
+         }
+
+         private User fallbackRetry(Throwable throwable){
+             return User.builder().withAge(1000).withId(-1L).withEmail("default@email.com").withFirstName("Retry").withLastName("Sem nome de famila").build();
+         }
+     }
+     ```
+
+    No exemplo acima, criamos um serviço `ResilientUserService` que encapsula o `UserService` e aplica as anotações `@CircuitBreaker` e `@RateLimiter`. Isso garante que o serviço seja resiliente às falhas e limita a taxa de chamadas para evitar sobrecarga.
+
+    Finalmente, vamos criar um controlador para expor o serviço através de uma API REST:
+
+     ```java
+     @RestController("/front")
+     public class UserController {
+
+         private final UserService userService;
+
+         @Autowired
+         public UserController(ResilientUserService resilientUserService) {
+             this.userService = resilientUserService;
+         }
+
+         @GetMapping("/user/{id}")
+         public ResponseEntity<User> login(@PathVariable Long id){
+             return ResponseEntity.ok(userService.login(id));
+         }
+
+     }
+    ```
+
+    Agora, ao acessar a rota /front/user/{id}, o controlador irá utilizar o serviço ResilientUserService, que aplicará o Circuit Breaker e o Rate Limiter para proteger a aplicação contra falhas e sobrecarga.
+
+3. _Modulos do Resilience4J_
+
+    _Circuit Breaker:_
+
+     - O Circuit Breaker é um padrão que protege sua aplicação de falhas em serviços dependentes, interrompendo temporariamente a execução de chamadas em caso de falha recorrente e permitindo que o serviço se recupere.
+
+    _Rate Limiter:_
+
+     - O Rate Limiter limita a taxa de chamadas a um serviço, evitando sobrecarga e garantindo uma melhor distribuição de recursos.
+
+    _Retry_
+
+     - O Retry permite que sua aplicação tente novamente uma chamada em caso de falha temporária, com a possibilidade de configurar o número máximo de tentativas e o intervalo entre elas.
+
+    _Bulkhead_
+
+     - O Bulkhead isola recursos e limita o número de chamadas simultâneas a um serviço, evitando que falhas em um serviço afetem outros serviços e garantindo uma melhor distribuição de recursos.
+
+    Você pode combinar esses módulos para criar uma solução de resiliência mais completa e personalizada para suas necessidades.
+
+4. _Arquivo application.yml em detalhes_
+
+    **Circuit Breaker:**
+
+     - slidingWindowSize: Define o tamanho da janela deslizante que é usada para contar o número de chamadas e calcular a taxa de falhas.
+     - failureRateThreshold: Define o limite de taxa de falha que, quando excedido, faz com que o circuito abra (ou seja, pare de fazer chamadas para o serviço).
+     - waitDurationInOpenState: Define o tempo de espera em milissegundos que o circuito permanecerá aberto antes de mudar para o estado "half-open" e tentar uma chamada novamente.
+     - slowCallRateThreshold: Define o limite de taxa de chamadas lentas que, quando excedido, faz com que o circuito abra.
+     - slowCallDurationThreshold: Define o tempo limite em milissegundos para considerar uma chamada como lenta.
+     - permittedNumberOfCallsInHalfOpenState: Define o número máximo de chamadas permitidas no estado "half-open".
+     - automaticTransitionFromOpenToHalfOpenEnabled: Se verdadeiro, o circuito mudará automaticamente do estado aberto para o estado "half-open" após o tempo de espera definido em waitDurationInOpenState.
+
+    **Rate Limiter:**
+
+     - limitForPeriod: Define o limite de chamadas permitidas para um determinado período.
+     - limitRefreshPeriod: Define o período de tempo em milissegundos em que o limite de chamadas será atualizado.
+     - timeoutDuration: Define o tempo de espera em milissegundos antes que uma chamada seja rejeitada quando o limite de taxa for excedido.
+
+    **Retry:**
+
+     - maxAttempts: Define o número máximo de tentativas antes que a operação seja considerada como falha.
+     - waitDuration: Define o tempo de espera em milissegundos entre as tentativas.
+     - retryExceptions: Lista de exceções para as quais a operação será tentada novamente.
+     - ignoreExceptions: Lista de exceções que serão ignoradas e não farão com que a operação seja tentada novamente.
+
+    **Bulkhead:**
+
+     - maxConcurrentCalls: Define o número máximo de chamadas simultâneas permitidas.
+     - maxWaitDuration: Define o tempo máximo de espera em milissegundos antes que uma chamada seja rejeitada quando o limite de chamadas simultâneas for atingido.
+
+    Cada configuração pode ser personalizada para se adequar às necessidades específicas de sua aplicação. Algumas dicas adicionais:
+
+     - É importante ajustar os valores de configuração para corresponder às características de desempenho e falha do serviço que você está protegendo. Por exemplo, se o serviço demora muito para responder, você pode aumentar o valor de **slowCallDurationThreshold** no Circuit Breaker.
+     - Ao combinar os módulos, como Circuit Breaker e Rate Limiter, certifique-se de que as configurações funcionam bem em conjunto. Por exemplo, você pode querer limitar a taxa de chamadas usando o Rate Limiter para evitar que o Circuit Breaker seja acionado com muita frequência.
+     - Considere as implicações de desempenho e latência ao configurar o Retry. Retentar muitas vezes com um intervalo de espera muito curto pode aumentar a carga no serviço e piorar o problema. Um valor mais conservador para **maxAttempts** e um intervalo de espera crescente entre tentativas podem ser mais eficazes.
+     - Ao configurar o Bulkhead, equilibre o número máximo de chamadas simultâneas com a capacidade do serviço e os recursos do sistema. Se o valor de **maxConcurrentCalls** for muito alto, o serviço pode ficar sobrecarregado. Se for muito baixo, você pode limitar desnecessariamente a capacidade de processamento da aplicação.
+
+    Lembre-se de testar e monitorar sua aplicação para garantir que as configurações do Resilience4J estejam funcionando conforme o esperado e proporcionando o nível de resiliência necessário.
+
+---
+
+**Conclusão**
+
+Neste post, apresentamos o Resilience4J e como integrá-lo com o Spring Boot para criar aplicações mais robustas e resilientes. O Resilience4J oferece várias estratégias de tolerância a falhas, como Circuit Breaker, Rate Limiter, Retry e Bulkhead, que podem ser facilmente aplicadas às suas aplicações Spring Boot. Não se esqueça de explorar a documentação do Resilience4J para descobrir todas as possibilidades e personalizar ainda mais o comportamento da sua aplicação.
+
+_Acesse aqui os fontes deste post_ [link](https://github.com/Nosbielc/blog-spring-resilience4J)
