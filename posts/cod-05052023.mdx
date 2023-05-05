@@ -1,0 +1,109 @@
+---
+title: "Desvendando o Chain of Responsibility Pattern com Exemplos em Java"
+description: "Neste post, exploramos o Chain of Responsibility Pattern, um padrão de design comportamental, e aplicamos exemplos práticos em Java para demonstrar seu uso e benefícios."
+date: May 05 2023
+---
+
+O Chain of Responsibility Pattern é um padrão de design comportamental que permite que um objeto passe uma solicitação a uma cadeia de objetos até que um deles processe a solicitação. Isso é útil para reduzir o acoplamento entre os objetos que fazem parte dessa cadeia.
+
+Imagine uma situação em que temos várias validações a serem realizadas em um objeto e, assim que uma validação falhar, não precisamos verificar as outras. O Chain of Responsibility Pattern pode ser uma solução eficiente para isso. Vamos explorar um exemplo em Java para ilustrar essa situação.
+
+Primeiro, criaremos uma interface chamada "Validador":
+
+```java
+public interface Validador {
+    void setProximo(Validador proximo);
+    void validar(Dados dados) throws ValidacaoException;
+}
+```
+
+Agora, criamos uma classe "Dados" que representa os dados que serão validados:
+
+```java
+public class Dados {
+    private String nome;
+    private int idade;
+
+    // Construtor, getters e setters
+}
+```
+
+Em seguida, implementamos os validadores concretos:
+
+```java
+public class ValidadorNome implements Validador {
+    private Validador proximo;
+
+    @Override
+    public void setProximo(Validador proximo) {
+        this.proximo = proximo;
+    }
+
+    @Override
+    public void validar(Dados dados) throws ValidacaoException {
+        if (dados.getNome() == null || dados.getNome().isEmpty()) {
+            throw new ValidacaoException("Nome inválido");
+        }
+
+        if (proximo != null) {
+            proximo.validar(dados);
+        }
+    }
+}
+
+public class ValidadorIdade implements Validador {
+    private Validador proximo;
+
+    @Override
+    public void setProximo(Validador proximo) {
+        this.proximo = proximo;
+    }
+
+    @Override
+    public void validar(Dados dados) throws ValidacaoException {
+        if (dados.getIdade() <= 0) {
+            throw new ValidacaoException("Idade inválida");
+        }
+
+        if (proximo != null) {
+            proximo.validar(dados);
+        }
+    }
+}
+```
+
+Agora podemos criar uma cadeia de validadores e executar a validação:
+
+```java
+public class Main {
+    public static void main(String[] args) {
+        Dados dados = new Dados("João", 25);
+
+        Validador validadorNome = new ValidadorNome();
+        Validador validadorIdade = new ValidadorIdade();
+
+        validadorNome.setProximo(validadorIdade);
+
+        try {
+            validadorNome.validar(dados);
+            System.out.println("Validação bem-sucedida");
+        } catch (ValidacaoException e) {
+            System.out.println("Erro de validação: " + e.getMessage());
+        }
+    }
+}
+```
+
+Neste exemplo, implementamos dois validadores, "ValidadorNome" e "ValidadorIdade", e os conectamos em uma cadeia. Quando executamos a validação, cada validador verifica se a condição é atendida e passa a solicitação para o próximo na cadeia, se houver. Se algum validador falhar, a validação é interrompida e uma exceção é lançada.
+
+O Chain of Responsibility Pattern traz uma série de vantagens, como:
+
+1. Desacoplamento dos objetos: Os objetos da cadeia não precisam saber sobre a existência dos outros, apenas sobre a interface comum.
+2. Flexibilidade: Podemos facilmente adicionar ou remover validadores sem afetar a lógica de validação existente.
+3. Encadeamento dinâmico: A ordem dos validadores na cadeia pode ser alterada em tempo de execução, se necessário.
+
+---
+
+**Conclusão**
+
+Em resumo, o Chain of Responsibility Pattern é uma solução elegante e eficiente para organizar uma sequência de operações que devem ser executadas em ordem. Ele é útil quando queremos evitar o acoplamento entre os objetos envolvidos, facilitar a manutenção e garantir a flexibilidade para adicionar ou remover etapas na sequência. Ao aplicar esse padrão em nosso exemplo Java, vimos como é fácil criar uma cadeia de validadores para processar solicitações e lidar com exceções de maneira eficaz.
