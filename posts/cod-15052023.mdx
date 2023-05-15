@@ -1,0 +1,146 @@
+---
+title: "Desvendando o Builder Pattern com Java: Uma Abordagem Prática"
+description: "Nesta postagem, vamos explorar o design pattern Builder, um padrão de projeto frequentemente utilizado em Java. Vamos entender seus conceitos fundamentais e ver exemplos práticos de como aplicá-lo em nossos projetos."
+date: May 15 2023
+---
+
+O Builder Pattern é um padrão de projeto de software que proporciona uma solução flexível para o problema de criação de objetos complexos. Este padrão é especialmente útil quando o objeto precisa ser criado com uma variedade de configurações possíveis.
+
+Para ilustrar a utilização do Builder Pattern, vamos considerar um exemplo de uma classe _Computador_. A criação de um objeto _Computador_ pode envolver várias etapas e configurações, como definir o sistema operacional, a quantidade de memória, o tipo de processador, entre outros.
+
+Sem o uso do padrão Builder, a criação de um objeto _Computador_ poderia parecer algo assim:
+
+```java
+Computador computador = new Computador();
+computador.setSistemaOperacional("Windows 10");
+computador.setMemoriaRam(16);
+computador.setProcessador("Intel Core i7");
+computador.setEspacoEmDisco(512);
+```
+
+Agora, vamos implementar a mesma funcionalidade usando o padrão Builder:
+
+Primeiro, criamos a classe _Computador_:
+
+```java
+public class Computador {
+    // campos da classe
+    private String sistemaOperacional;
+    private int memoriaRam;
+    private String processador;
+    private int espacoEmDisco;
+
+    public Computador(ComputadorBuilder builder) {
+        this.sistemaOperacional = builder.sistemaOperacional;
+        this.memoriaRam = builder.memoriaRam;
+        this.processador = builder.processador;
+        this.espacoEmDisco = builder.espacoEmDisco;
+    }
+
+    // métodos getter para os campos
+    ...
+}
+```
+
+Em seguida, criamos a classe _ComputadorBuilder_:
+
+```java
+public class ComputadorBuilder {
+    // campos da classe
+    public String sistemaOperacional;
+    public int memoriaRam;
+    public String processador;
+    public int espacoEmDisco;
+
+    // métodos setter que retornam o objeto ComputadorBuilder
+    public ComputadorBuilder setSistemaOperacional(String sistemaOperacional) {
+        this.sistemaOperacional = sistemaOperacional;
+        return this;
+    }
+
+    public ComputadorBuilder setMemoriaRam(int memoriaRam) {
+        this.memoriaRam = memoriaRam;
+        return this;
+    }
+
+    public ComputadorBuilder setProcessador(String processador) {
+        this.processador = processador;
+        return this;
+    }
+
+    public ComputadorBuilder setEspacoEmDisco(int espacoEmDisco) {
+        this.espacoEmDisco = espacoEmDisco;
+        return this;
+    }
+
+    public Computador build() {
+        return new Computador(this);
+    }
+}
+```
+
+Agora, a criação do objeto _Computador_ usando o Builder Pattern seria assim:
+
+```java
+Computador computador = new ComputadorBuilder()
+    .setSistemaOperacional("Windows 10")
+    .setMemoriaRam(16)
+    .setProcessador("Intel Core i7")
+    .setEspacoEmDisco(512)
+    .build();
+```
+
+Como você pode ver, o Builder Pattern torna o código mais legível e fornece uma maneira flexível e eficaz de construir objetos. Este padrão é especialmente útil quando estamos lidando com objetos que podem ter uma grande quantidade de parâmetros, ou quando queremos criar diferentes variantes do mesmo objeto.
+
+Vamos agora considerar um cenário mais complexo. Suponha que agora nosso computador possa ter vários periféricos, como uma webcam, um mouse, um teclado, entre outros. Sem o Builder Pattern, teríamos que criar diferentes construtores para cada combinação de periféricos, o que rapidamente se tornaria impraticável.
+
+Mas com o Builder Pattern, podemos simplesmente adicionar métodos setter para cada periférico na classe _ComputadorBuilder_, mantendo nosso código limpo e fácil de entender. Veja como seria:
+
+```java
+public class ComputadorBuilder {
+    // outros campos e métodos...
+
+    private boolean temWebcam;
+    private boolean temMouse;
+    private boolean temTeclado;
+
+    public ComputadorBuilder setTemWebcam(boolean temWebcam) {
+        this.temWebcam = temWebcam;
+        return this;
+    }
+
+    public ComputadorBuilder setTemMouse(boolean temMouse) {
+        this.temMouse = temMouse;
+        return this;
+    }
+
+    public ComputadorBuilder setTemTeclado(boolean temTeclado) {
+        this.temTeclado = temTeclado;
+        return this;
+    }
+
+    public Computador build() {
+        return new Computador(this);
+    }
+}
+```
+
+Agora, a criação do objeto _Computador_ com periféricos seria assim:
+
+```java
+Computador computador = new ComputadorBuilder()
+    .setSistemaOperacional("Windows 10")
+    .setMemoriaRam(16)
+    .setProcessador("Intel Core i7")
+    .setEspacoEmDisco(512)
+    .setTemWebcam(true)
+    .setTemMouse(true)
+    .setTemTeclado(true)
+    .build();
+```
+
+---
+
+**Conclusão**
+
+O padrão Builder é uma ferramenta poderosa que nos ajuda a manter nosso código limpo, legível e flexível. Ele nos permite construir objetos complexos passo a passo, controlando a criação do objeto e garantindo que o objeto seja criado de maneira consistente e correta. Espero que este post tenha ajudado a entender como implementar e usar o Builder Pattern em Java.
