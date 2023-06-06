@@ -1,0 +1,165 @@
+---
+title: "Explorando o Prototype Pattern com Java: Uma Ferramenta Poderosa de Design de Software"
+description: "Neste post, mergulharemos profundamente no Prototype Pattern, um padrão de design que oferece um método eficiente para copiar objetos existentes, evitando o custo de criar novos do zero. Faremos isso com a ajuda de exemplos práticos em Java."
+date: Jun 06 2023
+---
+
+No mundo do design de software, os padrões de design são soluções comprovadas para problemas comuns de projeto. Hoje, vamos explorar o Prototype Pattern, um padrão de design creacional que é usado quando o tipo de objetos a criar é determinado por uma instância prototípica, que é copiada para produzir novos objetos.
+
+Vamos começar criando uma interface chamada 'Prototype' que será implementada por todas as classes que precisam ser copiadas.
+
+```java
+public interface Prototype {
+    Prototype clone();
+}
+```
+
+Agora, vamos criar uma classe concreta que implementa a interface _Prototype_.
+
+```java
+public class ConcretePrototype implements Prototype {
+    private String field;
+
+    public ConcretePrototype(String field) {
+        this.field = field;
+    }
+
+    public ConcretePrototype(ConcretePrototype prototype) {
+        if (prototype != null) {
+            this.field = prototype.field;
+        }
+    }
+
+    @Override
+    public Prototype clone() {
+        return new ConcretePrototype(this);
+    }
+
+    @Override
+    public String toString() {
+        return field;
+    }
+}
+```
+
+Na classe _ConcretePrototype_, temos um construtor de cópia que cria um novo objeto _ConcretePrototype_ a partir de um existente. O método clone() retorna um novo _ConcretePrototype_ que é uma cópia do objeto atual.
+
+Vamos ver como usamos o Prototype Pattern na prática.
+
+```java
+public class PrototypeDemo {
+    public static void main(String[] args) {
+        ConcretePrototype original = new ConcretePrototype("Original");
+        System.out.println("Original: " + original);
+
+        ConcretePrototype cloned = (ConcretePrototype) original.clone();
+        System.out.println("Cloned: " + cloned);
+    }
+}
+```
+
+Quando você executa _PrototypeDemo_, ele cria uma cópia de 'original' chamada 'cloned'. Ambos os objetos são independentes. As alterações feitas em um objeto não afetarão o outro.
+
+O Prototype Pattern é útil quando a inicialização de um objeto é cara, e você precisa criar várias instâncias que são semelhantes, ou quando as classes a instanciar são especificadas em tempo de execução.
+
+Lembre-se, padrões de design são uma ferramenta valiosa, mas não são uma solução para todos os problemas. Eles devem ser aplicados quando apropriado e entender os conceitos subjacentes é crucial para aproveitá-los ao máximo.
+
+Agora que cobrimos o básico, vamos adicionar complexidade ao nosso exemplo com uma classe que contém vários campos. Suponha que temos uma classe Person com campos _name_, _age_ e _address_.
+
+```java
+public class Person implements Prototype {
+    private String name;
+    private int age;
+    private Address address;
+
+    public Person(String name, int age, Address address) {
+        this.name = name;
+        this.age = age;
+        this.address = address;
+    }
+
+    public Person(Person person) {
+        if (person != null) {
+            this.name = person.name;
+            this.age = person.age;
+            this.address = (Address) person.address.clone();
+        }
+    }
+
+    @Override
+    public Prototype clone() {
+        return new Person(this);
+    }
+
+    @Override
+    public String toString() {
+        return "Person{" +
+                "name='" + name + '\'' +
+                ", age=" + age +
+                ", address=" + address +
+                '}';
+    }
+}
+```
+
+Aqui, _Address_ é também uma classe clonável:
+
+```java
+public class Address implements Prototype {
+    private String street;
+    private String city;
+    private String country;
+
+    public Address(String street, String city, String country) {
+        this.street = street;
+        this.city = city;
+        this.country = country;
+    }
+
+    public Address(Address address) {
+        if (address != null) {
+            this.street = address.street;
+            this.city = address.city;
+            this.country = address.country;
+        }
+    }
+
+    @Override
+    public Prototype clone() {
+        return new Address(this);
+    }
+
+    @Override
+    public String toString() {
+        return "Address{" +
+                "street='" + street + '\'' +
+                ", city='" + city + '\'' +
+                ", country='" + country + '\'' +
+                '}';
+    }
+}
+```
+
+No exemplo acima, para criar uma cópia profunda de _Person_, precisamos também clonar o campo _address_.
+
+Vamos ver um exemplo de como usar isso:
+
+```java
+public class PrototypeDemo {
+    public static void main(String[] args) {
+        Person original = new Person("John", 25, new Address("Street 1", "City 1", "Country 1"));
+        System.out.println("Original: " + original);
+
+        Person cloned = (Person) original.clone();
+        System.out.println("Cloned: " + cloned);
+    }
+}
+```
+
+Neste caso, _original_ e _cloned_ são duas instâncias diferentes com os mesmos valores para seus campos. No entanto, eles são completamente independentes um do outro. Alterações feitas em _cloned_ não afetarão _original_, e vice-versa.
+
+---
+
+**Conclusão**
+
+Para concluir, o Prototype Pattern é uma maneira poderosa e eficiente de copiar objetos complexos. Ele permite que você faça cópias profundas de objetos, preservando a independência entre eles, sem a necessidade de conhecer a classe concreta do objeto que está sendo copiado. Lembre-se sempre de considerar o uso de padrões de design de software em suas soluções para melhorar a estrutura e eficiência de seu código.
