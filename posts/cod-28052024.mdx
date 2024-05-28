@@ -1,0 +1,156 @@
+---
+title: "Command Pattern em Java e Kotlin: Um Guia Completo"
+description: "Aprenda como implementar o Command Pattern em Java e Kotlin com exemplos práticos e compreenda os benefícios desse poderoso padrão de design."
+date: May 28 2024
+---
+
+## Introdução
+
+O Command Pattern é um padrão de design comportamental que transforma solicitações em objetos autônomos que contêm todas as informações necessárias para executar a ação. Esse padrão é particularmente útil para enfileirar, registrar e desfazer operações. Neste post, exploraremos o Command Pattern em profundidade, fornecendo exemplos em Java e Kotlin.
+
+## O que é o Command Pattern?
+
+O Command Pattern encapsula uma solicitação como um objeto, permitindo parametrizar clientes com diferentes solicitações, enfileirar ou registrar solicitações e suportar operações reversíveis.
+
+## Estrutura do Command Pattern
+
+A estrutura básica do Command Pattern envolve os seguintes componentes:
+- **Command**: Declara uma interface para executar uma operação.
+- **ConcreteCommand**: Implementa a interface Command, ligando uma ação ao Receiver.
+- **Receiver**: Sabe como executar as operações associadas à ação.
+- **Invoker**: Pede ao Command para executar a solicitação.
+- **Client**: Cria um objeto ConcreteCommand e define seu Receiver.
+
+## Exemplo em Java
+
+Aqui está um exemplo de implementação do Command Pattern em Java:
+
+\`\`\`java
+// Command Interface
+public interface Command {
+    void execute();
+}
+
+// Concrete Command
+public class LightOnCommand implements Command {
+    private Light light;
+
+    public LightOnCommand(Light light) {
+        this.light = light;
+    }
+
+    @Override
+    public void execute() {
+        light.on();
+    }
+}
+
+// Receiver
+public class Light {
+    public void on() {
+        System.out.println("The light is on");
+    }
+
+    public void off() {
+        System.out.println("The light is off");
+    }
+}
+
+// Invoker
+public class RemoteControl {
+    private Command command;
+
+    public void setCommand(Command command) {
+        this.command = command;
+    }
+
+    public void pressButton() {
+        command.execute();
+    }
+}
+
+// Client
+public class Client {
+    public static void main(String[] args) {
+        Light light = new Light();
+        Command lightOn = new LightOnCommand(light);
+
+        RemoteControl remote = new RemoteControl();
+        remote.setCommand(lightOn);
+        remote.pressButton();
+    }
+}
+\`\`\`
+
+Neste exemplo, criamos uma interface \`Command\` com um método \`execute()\`. A classe \`LightOnCommand\` implementa esta interface e define a ação de ligar a luz. A classe \`Light\` atua como o Receiver que sabe como executar as ações. A classe \`RemoteControl\` é o Invoker que chama o comando. Finalmente, a classe \`Client\` cria e configura os objetos.
+
+## Exemplo em Kotlin
+
+Aqui está o mesmo exemplo implementado em Kotlin:
+
+\`\`\`kotlin
+// Command Interface
+interface Command {
+    fun execute()
+}
+
+// Concrete Command
+class LightOnCommand(private val light: Light) : Command {
+    override fun execute() {
+        light.on()
+    }
+}
+
+// Receiver
+class Light {
+    fun on() {
+        println("The light is on")
+    }
+
+    fun off() {
+        println("The light is off")
+    }
+}
+
+// Invoker
+class RemoteControl {
+    private var command: Command? = null
+
+    fun setCommand(command: Command) {
+        this.command = command
+    }
+
+    fun pressButton() {
+        command?.execute()
+    }
+}
+
+// Client
+fun main() {
+    val light = Light()
+    val lightOnCommand = LightOnCommand(light)
+
+    val remote = RemoteControl()
+    remote.setCommand(lightOnCommand)
+    remote.pressButton()
+}
+\`\`\`
+
+No exemplo em Kotlin, a estrutura é similar à do Java, mas a sintaxe é mais concisa. A interface \`Command\` é implementada pela classe \`LightOnCommand\`, que define a ação de ligar a luz. A classe \`Light\` é o Receiver, e a classe \`RemoteControl\` é o Invoker. O cliente cria e configura os objetos necessários.
+
+## Benefícios do Command Pattern
+
+- **Desacoplamento**: O Command Pattern desacopla o objeto que invoca a operação do objeto que conhece como executá-la.
+- **Flexibilidade**: Permite criar comandos dinâmicos e complexos.
+- **Undo/Redo**: Facilita a implementação de funcionalidades de desfazer e refazer.
+
+## Conclusão
+
+O Command Pattern é uma poderosa ferramenta para a criação de sistemas flexíveis e extensíveis. Com este padrão, você pode encapsular ações como objetos, tornando mais fácil enfileirar, registrar e desfazer operações. Esperamos que este guia tenha ajudado você a entender como implementar o Command Pattern em Java e Kotlin.
+
+Para mais conteúdos sobre padrões de design e desenvolvimento de software, continue acompanhando nosso blog!
+
+---
+
+Referências:
+- Gamma, E., Helm, R., Johnson, R., & Vlissides, J. (1994). Design Patterns: Elements of Reusable Object-Oriented Software. Addison-Wesley.
