@@ -25,7 +25,7 @@ A estrutura básica do Command Pattern envolve os seguintes componentes:
 
 Aqui está um exemplo de implementação do Command Pattern em Java:
 
-    ```java
+```java
     // Command Interface
     public interface Command {
         void execute();
@@ -80,7 +80,7 @@ Aqui está um exemplo de implementação do Command Pattern em Java:
             remote.pressButton();
         }
     }
-    ```
+```
 
 Neste exemplo, criamos uma interface \`Command\` com um método \`execute()\`. A classe \`LightOnCommand\` implementa esta interface e define a ação de ligar a luz. A classe \`Light\` atua como o Receiver que sabe como executar as ações. A classe \`RemoteControl\` é o Invoker que chama o comando. Finalmente, a classe \`Client\` cria e configura os objetos.
 
@@ -88,7 +88,7 @@ Neste exemplo, criamos uma interface \`Command\` com um método \`execute()\`. A
 
 Aqui está o mesmo exemplo implementado em Kotlin:
 
-    ```java
+```java
     // Command Interface
     interface Command {
         fun execute()
@@ -134,7 +134,7 @@ Aqui está o mesmo exemplo implementado em Kotlin:
         remote.setCommand(lightOnCommand)
         remote.pressButton()
     }
-    ```
+```
 
 No exemplo em Kotlin, a estrutura é similar à do Java, mas a sintaxe é mais concisa. A interface \`Command\` é implementada pela classe \`LightOnCommand\`, que define a ação de ligar a luz. A classe \`Light\` é o Receiver, e a classe \`RemoteControl\` é o Invoker. O cliente cria e configura os objetos necessários.
 
