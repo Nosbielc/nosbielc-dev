@@ -1,0 +1,135 @@
+---
+title: "Conventional Commits: Uma Abordagem Estruturada para Mensagens de Commit"
+description: "Aprenda sobre a convenção de mensagens de commit Conventional Commits, seus benefícios e como implementá-la em seus projetos."
+date: May 31 2024
+---
+
+## Introdução
+
+O Conventional Commits é uma convenção simples que utiliza um conjunto de regras para criar um histórico de commits explícito e consistente. Ele ajuda a manter a clareza e a legibilidade no desenvolvimento de software, facilitando o rastreamento de mudanças e a automação de processos. Neste post, exploraremos o que são Conventional Commits, como utilizá-los e os benefícios que eles trazem para projetos de software.
+
+## O que são Conventional Commits?
+
+Conventional Commits é uma especificação que define um padrão para mensagens de commit. Esse padrão visa criar um histórico de commit legível e útil, utilizando tipos de commit bem definidos e uma sintaxe específica. A especificação ajuda a padronizar mensagens de commit, tornando-as mais informativas e estruturadas.
+
+## Estrutura das Mensagens de Commit
+
+A estrutura básica de uma mensagem de commit seguindo a convenção é:
+
+```
+    [escopo opcional]: <descrição>
+
+    [corpo opcional]
+
+    [rodapé opcional]
+```
+
+- **tipo**: Um dos tipos predefinidos de commit (ex.: feat, fix, docs, style, refactor, test, chore).
+- **escopo**: Opcional, mas útil para fornecer contexto adicional sobre a parte do código que foi alterada.
+- **descrição**: Uma breve descrição do que foi alterado.
+- **corpo**: Opcional, fornece uma descrição mais detalhada das mudanças.
+- **rodapé**: Opcional, utilizado para informações adicionais, como fechamento de issues.
+
+## Tipos de Commits
+
+Os tipos de commit mais comuns incluem:
+
+- **feat**: Uma nova funcionalidade.
+- **fix**: Correção de bug.
+- **docs**: Alterações na documentação.
+- **style**: Alterações que não afetam a lógica do código (espaços em branco, formatação, etc.).
+- **refactor**: Alterações no código que não corrigem bugs nem adicionam funcionalidades.
+- **test**: Adição ou modificação de testes.
+- **chore**: Atualizações de tarefas e manutenção do projeto (build tasks, atualizações de dependências, etc.).
+
+## Exemplo de Mensagens de Commit
+
+Aqui estão alguns exemplos de mensagens de commit seguindo a convenção:
+
+- **feat**: Adicionando uma nova funcionalidade em Java:
+```
+  feat(user): add new user registration feature
+```
+
+- **fix**: Corrigindo um bug em Kotlin:
+```
+  fix(api): correct null pointer exception on login
+```
+
+- **docs**: Atualizando a documentação:
+```
+  docs(readme): update setup instructions
+```
+
+- **style**: Corrigindo formatação de código:
+```
+  style(payment): format code according to style guide
+```
+
+- **refactor**: Refatorando código:
+```
+  refactor(order): improve performance of order processing
+```
+
+## Benefícios dos Conventional Commits
+
+- **Clareza**: Mensagens de commit padronizadas tornam o histórico de commits mais fácil de entender.
+- **Automação**: Facilita a automação de processos como geração de changelogs, versionamento semântico e deploys automatizados.
+- **Rastreabilidade**: Permite rastrear facilmente o que foi alterado e por quê, facilitando a identificação de bugs e a revisão de código.
+- **Consistência**: Garante que todos os membros da equipe sigam o mesmo padrão, aumentando a coesão do projeto.
+
+## Ferramentas de Suporte
+
+Existem várias ferramentas que ajudam a implementar e manter Conventional Commits em seus projetos:
+
+- **commitlint**: Linter para mensagens de commit, garantindo que elas sigam a convenção.
+- **commitizen**: Ferramenta que facilita a criação de commits seguindo a convenção.
+- **semantic-release**: Automatiza o versionamento semântico e o lançamento de novas versões baseado nos Conventional Commits.
+
+## Implementação de Conventional Commits
+
+Vamos ver um exemplo de como configurar o `commitlint` e o `commitizen` em um projeto:
+
+1. **Instalar dependências**:
+```bash
+  npm install --save-dev @commitlint/{config-conventional,cli} commitizen cz-conventional-changelog
+```
+
+2. **Configurar commitlint**:
+Crie um arquivo `commitlint.config.js` na raiz do projeto:
+```js
+    module.exports = { extends: ['@commitlint/config-conventional'] };
+```
+
+3. **Configurar commitizen**:
+Adicione o seguinte ao seu `package.json`:
+```json
+     "config": {
+       "commitizen": {
+         "path": "./node_modules/cz-conventional-changelog"
+       }
+     }
+```
+
+4. **Adicionar scripts ao package.json**:
+```json
+     "scripts": {
+       "commit": "git-cz"
+     }
+```
+
+Agora, você pode usar `npm run commit` para criar mensagens de commit que seguem a convenção.
+
+## Conclusão
+
+Conventional Commits oferecem uma maneira estruturada e padronizada de escrever mensagens de commit, melhorando a clareza, a rastreabilidade e a automação em projetos de software. Implementar essa convenção pode trazer inúmeros benefícios para a sua equipe, facilitando a colaboração e a manutenção do código.
+
+Para mais conteúdos sobre boas práticas de desenvolvimento e padrões de design, continue acompanhando nosso blog!
+
+---
+
+Referências:
+- [Conventional Commits](https://www.conventionalcommits.org)
+- [commitlint](https://github.com/conventional-changelog/commitlint)
+- [commitizen](https://github.com/commitizen/cz-cli)
+- [semantic-release](https://github.com/semantic-release/semantic-release)
