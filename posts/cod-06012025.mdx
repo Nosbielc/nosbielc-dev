@@ -1,0 +1,128 @@
+---
+title: "ETag no Spring Boot 3: Otimizando sua API REST"
+description: "Aprenda como implementar ETag no Spring Boot 3 para melhorar a performance de suas APIs REST.."
+date: Jan 01 2025
+---
+
+## Introdução
+
+O ETag (Entity Tag) é um recurso poderoso em APIs RESTful que ajuda a otimizar o desempenho, reduzir a largura de banda e melhorar a experiência do cliente. Ele permite que os clientes validem se um recurso foi modificado antes de fazer o download de novos dados, tornando as operações mais eficientes.
+
+Neste post, exploraremos como configurar e usar ETag em uma API desenvolvida com **Spring Boot 3**.
+
+## O que é ETag?
+
+ETag é um identificador único associado a uma versão específica de um recurso. Sempre que um recurso é alterado, o ETag é atualizado. O cliente pode usar esse ETag para verificar se o recurso foi modificado antes de buscar ou atualizar os dados.
+
+**Principais benefícios do ETag:**
+- **Redução de Largura de Banda**: Evita o download de recursos não alterados.
+- **Desempenho**: Diminui a carga no servidor e melhora o tempo de resposta.
+- **Cacheamento Inteligente**: Permite que clientes mantenham versões em cache validadas.
+
+---
+
+## Funcionamento do ETag
+
+O ETag funciona por meio de cabeçalhos HTTP:
+
+1. **Servidor envia o ETag no cabeçalho de resposta (`ETag`)**:
+- O cliente armazena o ETag para futuras validações.
+
+2. **Cliente envia o ETag no cabeçalho de requisição (`If-None-Match`)**:
+- O servidor verifica o ETag enviado com a versão atual do recurso.
+
+3. **Servidor retorna a resposta**:
+- Se o recurso não foi modificado: `304 Not Modified`.
+- Se o recurso foi modificado: `200 OK` com o novo conteúdo.
+
+---
+
+## Configurando ETag no Spring Boot 3
+
+O Spring Boot 3 facilita a implementação de ETags com o uso de **ResponseEntity** e APIs personalizadas.
+
+### Exemplo de Implementação
+
+Aqui está um exemplo prático de um endpoint que utiliza ETag:
+
+```java
+package com.example.demo.controller;
+
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Objects;
+
+@RestController
+public class ETagController {
+
+    private final String currentResourceData = "Dados do recurso atual";
+
+    @GetMapping("/resource")
+    public ResponseEntity<String> getResource(
+            @RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch) {
+
+        // Gerando o ETag
+        String eTag = "\"" + Integer.toHexString(Objects.hashCode(currentResourceData)) + "\"";
+
+        // Validando o ETag recebido
+        if (eTag.equals(ifNoneMatch)) {
+            return ResponseEntity.status(HttpStatus.NOT_MODIFIED).eTag(eTag).build();
+        }
+
+        // Retornando o recurso com o ETag
+        return ResponseEntity.ok().eTag(eTag).body(currentResourceData);
+    }
+}
+```
+
+### Explicação do Código
+- **Cálculo do ETag:** O ETag é gerado como um hash único do conteúdo do recurso.
+- **Validação do ETag:** O cabeçalho If-None-Match é verificado para determinar se o recurso foi alterado.
+- **Resposta Condicional:** Retorna 304 Not Modified quando o recurso não foi alterado.
+
+### Testando o Endpoint com cURL
+
+1. **Primeira Requisição:**:
+
+```javascript
+curl -i http://localhost:8080/resource
+```
+- Resposta:
+```javascript
+HTTP/1.1 200 OK
+ETag: "d2c7df3"
+Content-Type: text/plain
+Content-Length: 21
+
+Dados do recurso atual
+```
+
+2. **Requisição com ETag:**:
+
+```javascript
+curl -i -H "If-None-Match: \"d2c7df3\"" http://localhost:8080/resource
+```
+- Resposta:
+```javascript
+HTTP/1.1 304 Not Modified
+```
+---
+### Boas Práticas
+
+- **Cálculo de ETags:**
+    Utilize algoritmos de hash confiáveis (ex.: SHA256) para garantir identificadores únicos.
+- **Integração com Cache-Control:**
+    Combine ETags com cabeçalhos de cache como Cache-Control para maximizar o desempenho.
+- **Versionamento de Recursos:**
+    Garanta que o ETag seja atualizado sempre que um recurso for modificado.
+---
+### Conclusão
+
+ETag é uma ferramenta poderosa para otimizar o desempenho de APIs RESTful no Spring Boot 3. Com uma configuração simples, você pode reduzir a largura de banda, melhorar o tempo de resposta e oferecer uma experiência mais eficiente para os clientes.
+
+Experimente implementar ETags em sua API e aproveite seus benefícios!
