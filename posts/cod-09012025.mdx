@@ -1,0 +1,283 @@
+---
+title: "Strategy Pattern em Java: Implementando Algoritmos Intercambiáveis"
+description: "Aprenda como implementar o Strategy Pattern em Java para criar algoritmos flexíveis e intercambiáveis. Descubra como este padrão comportamental pode melhorar a manutenibilidade do seu código."
+date: Jan 09 2025
+---
+
+## Introdução
+
+O **Strategy Pattern** (Padrão Estratégia) é um padrão de design comportamental que define uma família de algoritmos, encapsula cada um deles e os torna intercambiáveis. Este padrão permite que o algoritmo varie independentemente dos clientes que o utilizam, promovendo flexibilidade e reutilização de código.
+
+Neste post, exploraremos o conceito do Strategy Pattern, suas vantagens e como implementá-lo em Java com exemplos práticos.
+
+---
+
+## O que é o Strategy Pattern?
+
+O Strategy Pattern resolve o problema de ter múltiplas maneiras de executar uma tarefa, permitindo que você escolha o algoritmo apropriado em tempo de execução. Em vez de usar condicionais complexas (if/else ou switch), o padrão encapsula cada algoritmo em classes separadas.
+
+**Principais componentes:**
+
+1. **Strategy (Estratégia):** Interface que define o contrato comum para todos os algoritmos.
+2. **ConcreteStrategy (Estratégia Concreta):** Implementações específicas dos algoritmos.
+3. **Context (Contexto):** Classe que utiliza uma estratégia e pode alterá-la conforme necessário.
+
+---
+
+## Quando usar o Strategy Pattern?
+
+- Quando você tem múltiplas maneiras de realizar uma tarefa.
+- Para evitar condicionais complexas que escolhem entre diferentes algoritmos.
+- Quando você quer adicionar novos algoritmos sem modificar o código existente.
+- Para promover o princípio Aberto/Fechado (Open/Closed Principle).
+
+---
+
+## Exemplo Prático em Java
+
+Vamos implementar um sistema de cálculo de desconto para um e-commerce, onde diferentes tipos de clientes recebem descontos distintos.
+
+---
+
+#### 1. Criando a Interface Strategy
+
+A interface define o contrato que todas as estratégias de desconto devem implementar:
+
+```java
+public interface DiscountStrategy {
+    double calculateDiscount(double originalPrice);
+    String getDiscountDescription();
+}
+```
+
+#### 2. Implementando as Estratégias Concretas
+
+**Estratégia para Cliente Regular:**
+
+```java
+public class RegularCustomerDiscount implements DiscountStrategy {
+    
+    @Override
+    public double calculateDiscount(double originalPrice) {
+        return originalPrice * 0.05; // 5% de desconto
+    }
+    
+    @Override
+    public String getDiscountDescription() {
+        return "Desconto Cliente Regular (5%)";
+    }
+}
+```
+
+**Estratégia para Cliente Premium:**
+
+```java
+public class PremiumCustomerDiscount implements DiscountStrategy {
+    
+    @Override
+    public double calculateDiscount(double originalPrice) {
+        return originalPrice * 0.15; // 15% de desconto
+    }
+    
+    @Override
+    public String getDiscountDescription() {
+        return "Desconto Cliente Premium (15%)";
+    }
+}
+```
+
+**Estratégia para Cliente VIP:**
+
+```java
+public class VipCustomerDiscount implements DiscountStrategy {
+    
+    @Override
+    public double calculateDiscount(double originalPrice) {
+        return originalPrice * 0.25; // 25% de desconto
+    }
+    
+    @Override
+    public String getDiscountDescription() {
+        return "Desconto Cliente VIP (25%)";
+    }
+}
+```
+
+---
+
+#### 3. Criando a Classe Context
+
+A classe **ShoppingCart** atua como contexto, utilizando as estratégias de desconto:
+
+```java
+public class ShoppingCart {
+    private DiscountStrategy discountStrategy;
+    
+    public ShoppingCart(DiscountStrategy discountStrategy) {
+        this.discountStrategy = discountStrategy;
+    }
+    
+    public void setDiscountStrategy(DiscountStrategy discountStrategy) {
+        this.discountStrategy = discountStrategy;
+    }
+    
+    public double calculateTotalPrice(double originalPrice) {
+        double discount = discountStrategy.calculateDiscount(originalPrice);
+        double finalPrice = originalPrice - discount;
+        
+        System.out.println("Preço original: R$ " + String.format("%.2f", originalPrice));
+        System.out.println("Estratégia aplicada: " + discountStrategy.getDiscountDescription());
+        System.out.println("Desconto: R$ " + String.format("%.2f", discount));
+        System.out.println("Preço final: R$ " + String.format("%.2f", finalPrice));
+        System.out.println("---");
+        
+        return finalPrice;
+    }
+}
+```
+
+---
+
+#### 4. Criando o Cliente
+
+Demonstramos como usar o Strategy Pattern em diferentes cenários:
+
+```java
+public class StrategyPatternDemo {
+    public static void main(String[] args) {
+        double originalPrice = 100.0;
+        
+        // Cliente Regular
+        ShoppingCart cart = new ShoppingCart(new RegularCustomerDiscount());
+        cart.calculateTotalPrice(originalPrice);
+        
+        // Mudando para Cliente Premium
+        cart.setDiscountStrategy(new PremiumCustomerDiscount());
+        cart.calculateTotalPrice(originalPrice);
+        
+        // Mudando para Cliente VIP
+        cart.setDiscountStrategy(new VipCustomerDiscount());
+        cart.calculateTotalPrice(originalPrice);
+        
+        // Demonstrando flexibilidade - criando carrinho específico
+        ShoppingCart vipCart = new ShoppingCart(new VipCustomerDiscount());
+        vipCart.calculateTotalPrice(200.0);
+    }
+}
+```
+
+---
+
+### Saída do Programa
+
+Ao executar o código acima, você verá a seguinte saída:
+
+```text
+Preço original: R$ 100,00
+Estratégia aplicada: Desconto Cliente Regular (5%)
+Desconto: R$ 5,00
+Preço final: R$ 95,00
+---
+Preço original: R$ 100,00
+Estratégia aplicada: Desconto Cliente Premium (15%)
+Desconto: R$ 15,00
+Preço final: R$ 85,00
+---
+Preço original: R$ 100,00
+Estratégia aplicada: Desconto Cliente VIP (25%)
+Desconto: R$ 25,00
+Preço final: R$ 75,00
+---
+Preço original: R$ 200,00
+Estratégia aplicada: Desconto Cliente VIP (25%)
+Desconto: R$ 50,00
+Preço final: R$ 150,00
+---
+```
+
+---
+
+### Explicação do Código
+
+1. **Interface DiscountStrategy:** Define o contrato comum para todos os algoritmos de desconto.
+
+2. **Estratégias Concretas:** Cada classe implementa uma política de desconto específica (Regular, Premium, VIP).
+
+3. **Classe ShoppingCart:** Atua como contexto, mantendo uma referência para a estratégia atual e delegando os cálculos para ela.
+
+4. **Flexibilidade:** O algoritmo pode ser trocado em tempo de execução usando o método `setDiscountStrategy()`.
+
+---
+
+### Vantagens e Desvantagens
+
+**Vantagens:**
+
+- **Flexibilidade:** Algoritmos podem ser trocados facilmente em tempo de execução.
+- **Extensibilidade:** Novas estratégias podem ser adicionadas sem modificar código existente.
+- **Manutenibilidade:** Cada algoritmo fica isolado em sua própria classe.
+- **Testabilidade:** Cada estratégia pode ser testada independentemente.
+- **Princípio Aberto/Fechado:** Aberto para extensão, fechado para modificação.
+
+**Desvantagens:**
+
+- **Proliferação de Classes:** Pode aumentar o número de classes no sistema.
+- **Complexidade Inicial:** Para casos simples, pode ser excessivo.
+- **Conhecimento das Estratégias:** O cliente precisa conhecer as diferentes estratégias disponíveis.
+
+---
+
+### Variações do Strategy Pattern
+
+**Strategy com Enum:**
+
+```java
+public enum DiscountType {
+    REGULAR(0.05),
+    PREMIUM(0.15),
+    VIP(0.25);
+    
+    private final double discountRate;
+    
+    DiscountType(double discountRate) {
+        this.discountRate = discountRate;
+    }
+    
+    public double calculateDiscount(double originalPrice) {
+        return originalPrice * discountRate;
+    }
+}
+```
+
+**Strategy com Expressões Lambda (Java 8+):**
+
+```java
+// Definindo estratégias como funções
+Function<Double, Double> regularDiscount = price -> price * 0.05;
+Function<Double, Double> premiumDiscount = price -> price * 0.15;
+Function<Double, Double> vipDiscount = price -> price * 0.25;
+
+// Uso das estratégias
+double price = 100.0;
+double discountRegular = regularDiscount.apply(price);
+```
+
+---
+
+### Quando evitar o Strategy Pattern?
+
+- Para casos muito simples com apenas 2-3 opções, uma estrutura if/else pode ser suficiente.
+- Quando os algoritmos raramente mudam ou são adicionados.
+- Se a performance for crítica e o overhead de chamadas polimórficas for significativo.
+
+---
+
+### Conclusão
+
+O **Strategy Pattern** é uma solução elegante para cenários onde você precisa escolher entre diferentes algoritmos em tempo de execução. Ele promove código limpo, flexível e facilmente extensível, seguindo princípios sólidos de design orientado a objetos.
+
+Este padrão é especialmente útil em Java, onde pode ser implementado de forma clara e eficiente. Se você trabalha com sistemas que precisam de flexibilidade algorítmica, o Strategy Pattern é uma ferramenta indispensável no seu arsenal de design patterns.
+
+---
+
+Gostou deste post? Continue acompanhando para mais conteúdos sobre padrões de design e desenvolvimento em **Java**!
