@@ -1,0 +1,381 @@
+---
+title: "Template Method Pattern em Java: Definindo o Esqueleto de Algoritmos"
+description: "Aprenda como implementar o Template Method Pattern em Java para criar algoritmos flexíveis com estrutura reutilizável. Descubra como este padrão comportamental promove reutilização de código e extensibilidade."
+date: Jul 02 2025
+---
+
+## Introdução
+
+O **Template Method Pattern** (Padrão Método Template) é um padrão de design comportamental que define o esqueleto de um algoritmo em uma operação, adiando alguns passos para subclasses. Este padrão permite que as subclasses redefinam certas etapas de um algoritmo sem alterar sua estrutura geral, promovendo reutilização de código e consistência.
+
+Neste post, exploraremos o conceito do Template Method Pattern, suas vantagens e como implementá-lo em Java com exemplos práticos de um sistema de processamento de dados.
+
+---
+
+## O que é o Template Method Pattern?
+
+O Template Method Pattern resolve o problema de ter algoritmos com estrutura similar, mas com implementações específicas em certas etapas. Em vez de duplicar código, o padrão define uma estrutura comum e permite que subclasses personalizem apenas as partes necessárias.
+
+**Principais componentes:**
+
+1. **Abstract Class (Classe Abstrata):** Define o método template e os métodos abstratos que serão implementados pelas subclasses.
+2. **Template Method (Método Template):** Define o esqueleto do algoritmo, chamando os métodos abstratos na ordem correta.
+3. **Concrete Methods (Métodos Concretos):** Implementações padrão que podem ser reutilizadas ou sobrescritas.
+4. **Hook Methods (Métodos Gancho):** Métodos opcionais que subclasses podem sobrescrever para personalizar o comportamento.
+
+---
+
+## Quando usar o Template Method Pattern?
+
+- Quando você tem múltiplos algoritmos com estrutura similar, mas passos específicos diferentes.
+- Para evitar duplicação de código em algoritmos relacionados.
+- Quando você quer garantir que certas etapas sejam executadas em uma ordem específica.
+- Para permitir extensibilidade controlada - subclasses podem personalizar apenas partes específicas.
+- Para implementar o princípio Hollywood: "Não nos chame, nós chamaremos você".
+
+---
+
+## Exemplo Prático em Java
+
+Vamos implementar um sistema de processamento de relatórios onde diferentes tipos de relatórios seguem o mesmo fluxo básico, mas com implementações específicas para cada tipo.
+
+---
+
+#### 1. Criando a Classe Abstrata
+
+A classe abstrata define o método template e os métodos que devem ser implementados pelas subclasses:
+
+```java
+public abstract class DataProcessor {
+    
+    // Template Method - define o algoritmo principal
+    public final void processData() {
+        System.out.println("=== Iniciando processamento de dados ===");
+        
+        loadData();
+        validateData();
+        processSpecificData();
+        
+        if (shouldSaveToDatabase()) {
+            saveToDatabase();
+        }
+        
+        generateReport();
+        notifyCompletion();
+        
+        System.out.println("=== Processamento concluído ===\n");
+    }
+    
+    // Métodos abstratos - devem ser implementados pelas subclasses
+    protected abstract void loadData();
+    protected abstract void validateData();
+    protected abstract void processSpecificData();
+    protected abstract void generateReport();
+    
+    // Hook method - pode ser sobrescrito opcionalmente
+    protected boolean shouldSaveToDatabase() {
+        return true; // comportamento padrão
+    }
+    
+    // Métodos concretos - implementação padrão reutilizável
+    protected void saveToDatabase() {
+        System.out.println("Salvando dados processados no banco de dados...");
+    }
+    
+    protected void notifyCompletion() {
+        System.out.println("Notificação de conclusão enviada aos usuários.");
+    }
+}
+```
+
+---
+
+#### 2. Implementando as Subclasses Concretas
+
+**Processador de Vendas:**
+
+```java
+public class SalesDataProcessor extends DataProcessor {
+    
+    @Override
+    protected void loadData() {
+        System.out.println("Carregando dados de vendas do sistema CRM...");
+        // Simula carregamento de dados de vendas
+    }
+    
+    @Override
+    protected void validateData() {
+        System.out.println("Validando dados de vendas (valores, datas, vendedores)...");
+        // Simula validação específica para vendas
+    }
+    
+    @Override
+    protected void processSpecificData() {
+        System.out.println("Calculando totais de vendas, comissões e metas atingidas...");
+        // Simula processamento específico de vendas
+    }
+    
+    @Override
+    protected void generateReport() {
+        System.out.println("Gerando relatório de vendas em formato PDF...");
+        // Simula geração de relatório de vendas
+    }
+}
+```
+
+**Processador de Inventário:**
+
+```java
+public class InventoryDataProcessor extends DataProcessor {
+    
+    @Override
+    protected void loadData() {
+        System.out.println("Carregando dados de inventário do sistema de estoque...");
+        // Simula carregamento de dados de inventário
+    }
+    
+    @Override
+    protected void validateData() {
+        System.out.println("Validando dados de inventário (quantidades, preços, localização)...");
+        // Simula validação específica para inventário
+    }
+    
+    @Override
+    protected void processSpecificData() {
+        System.out.println("Calculando níveis de estoque, itens em falta e reposição necessária...");
+        // Simula processamento específico de inventário
+    }
+    
+    @Override
+    protected void generateReport() {
+        System.out.println("Gerando relatório de inventário em formato Excel...");
+        // Simula geração de relatório de inventário
+    }
+    
+    // Sobrescreve o hook method para inventário crítico
+    @Override
+    protected boolean shouldSaveToDatabase() {
+        System.out.println("Verificando se há itens críticos no estoque...");
+        return true; // sempre salva para inventário
+    }
+}
+```
+
+**Processador de Relatório Financeiro (sem salvamento em BD):**
+
+```java
+public class FinancialDataProcessor extends DataProcessor {
+    
+    @Override
+    protected void loadData() {
+        System.out.println("Carregando dados financeiros do sistema contábil...");
+        // Simula carregamento de dados financeiros
+    }
+    
+    @Override
+    protected void validateData() {
+        System.out.println("Validando dados financeiros (balanços, fluxos de caixa)...");
+        // Simula validação específica para finanças
+    }
+    
+    @Override
+    protected void processSpecificData() {
+        System.out.println("Calculando indicadores financeiros e análises de rentabilidade...");
+        // Simula processamento específico financeiro
+    }
+    
+    @Override
+    protected void generateReport() {
+        System.out.println("Gerando relatório financeiro confidencial em formato seguro...");
+        // Simula geração de relatório financeiro
+    }
+    
+    // Hook method personalizado - relatórios financeiros não são salvos no BD comum
+    @Override
+    protected boolean shouldSaveToDatabase() {
+        System.out.println("Relatórios financeiros são confidenciais - não salvando no BD comum.");
+        return false;
+    }
+    
+    // Sobrescreve método de notificação para relatórios confidenciais
+    @Override
+    protected void notifyCompletion() {
+        System.out.println("Notificação confidencial enviada apenas para a diretoria.");
+    }
+}
+```
+
+---
+
+#### 3. Criando o Cliente
+
+Demonstramos como usar o Template Method Pattern com diferentes processadores:
+
+```java
+public class TemplateMethodDemo {
+    public static void main(String[] args) {
+        
+        // Processando dados de vendas
+        DataProcessor salesProcessor = new SalesDataProcessor();
+        salesProcessor.processData();
+        
+        // Processando dados de inventário
+        DataProcessor inventoryProcessor = new InventoryDataProcessor();
+        inventoryProcessor.processData();
+        
+        // Processando dados financeiros
+        DataProcessor financialProcessor = new FinancialDataProcessor();
+        financialProcessor.processData();
+        
+        // Demonstrando polimorfismo
+        System.out.println("=== Processamento em lote ===");
+        DataProcessor[] processors = {
+            new SalesDataProcessor(),
+            new InventoryDataProcessor(),
+            new FinancialDataProcessor()
+        };
+        
+        for (DataProcessor processor : processors) {
+            processor.processData();
+        }
+    }
+}
+```
+
+---
+
+### Saída do Programa
+
+Ao executar o código acima, você verá a seguinte saída:
+
+```text
+=== Iniciando processamento de dados ===
+Carregando dados de vendas do sistema CRM...
+Validando dados de vendas (valores, datas, vendedores)...
+Calculando totais de vendas, comissões e metas atingidas...
+Salvando dados processados no banco de dados...
+Gerando relatório de vendas em formato PDF...
+Notificação de conclusão enviada aos usuários.
+=== Processamento concluído ===
+
+=== Iniciando processamento de dados ===
+Carregando dados de inventário do sistema de estoque...
+Validando dados de inventário (quantidades, preços, localização)...
+Calculando níveis de estoque, itens em falta e reposição necessária...
+Verificando se há itens críticos no estoque...
+Salvando dados processados no banco de dados...
+Gerando relatório de inventário em formato Excel...
+Notificação de conclusão enviada aos usuários.
+=== Processamento concluído ===
+
+=== Iniciando processamento de dados ===
+Carregando dados financeiros do sistema contábil...
+Validando dados financeiros (balanços, fluxos de caixa)...
+Calculando indicadores financeiros e análises de rentabilidade...
+Relatórios financeiros são confidenciais - não salvando no BD comum.
+Gerando relatório financeiro confidencial em formato seguro...
+Notificação confidencial enviada apenas para a diretoria.
+=== Processamento concluído ===
+```
+
+---
+
+### Explicação do Código
+
+1. **DataProcessor:** A classe abstrata define o template method `processData()` que estabelece a ordem das operações.
+
+2. **Template Method:** O método `processData()` é `final` para impedir que subclasses alterem a estrutura do algoritmo.
+
+3. **Métodos Abstratos:** `loadData()`, `validateData()`, `processSpecificData()` e `generateReport()` devem ser implementados pelas subclasses.
+
+4. **Hook Methods:** `shouldSaveToDatabase()` é um método gancho que pode ser sobrescrito opcionalmente.
+
+5. **Métodos Concretos:** `saveToDatabase()` e `notifyCompletion()` fornecem implementações padrão que podem ser reutilizadas.
+
+6. **Polimorfismo:** O padrão funciona perfeitamente com polimorfismo, permitindo tratar diferentes processadores de forma uniforme.
+
+---
+
+### Vantagens e Desvantagens
+
+**Vantagens:**
+
+- **Reutilização de Código:** Elimina duplicação de código comum entre algoritmos similares.
+- **Controle de Estrutura:** Garante que o algoritmo siga uma sequência específica de passos.
+- **Extensibilidade:** Novas variações podem ser criadas facilmente estendendo a classe base.
+- **Princípio Hollywood:** A classe base controla quando chamar os métodos das subclasses.
+- **Manutenibilidade:** Mudanças na estrutura do algoritmo precisam ser feitas apenas na classe base.
+
+**Desvantagens:**
+
+- **Herança Obrigatória:** Força o uso de herança, que pode ser limitante.
+- **Violação do LSP:** Subclasses mal implementadas podem quebrar o comportamento esperado.
+- **Debugging Complexo:** O fluxo de execução pode ser difícil de acompanhar.
+- **Rigidez:** A estrutura do algoritmo é fixa e não pode ser facilmente alterada.
+
+---
+
+### Variações do Template Method Pattern
+
+**Template Method com Enums:**
+
+```java
+public enum ProcessingStep {
+    LOAD_DATA("Carregando dados..."),
+    VALIDATE_DATA("Validando dados..."),
+    PROCESS_DATA("Processando dados..."),
+    GENERATE_REPORT("Gerando relatório...");
+    
+    private final String description;
+    
+    ProcessingStep(String description) {
+        this.description = description;
+    }
+    
+    public String getDescription() {
+        return description;
+    }
+}
+```
+
+**Template Method com Callbacks (Java 8+):**
+
+```java
+public class CallbackProcessor {
+    
+    public void processData(
+            Runnable loadData,
+            Runnable validateData,
+            Runnable processData,
+            Runnable generateReport) {
+        
+        System.out.println("=== Iniciando processamento ===");
+        loadData.run();
+        validateData.run();
+        processData.run();
+        generateReport.run();
+        System.out.println("=== Processamento concluído ===");
+    }
+}
+```
+
+---
+
+### Quando evitar o Template Method Pattern?
+
+- Quando o algoritmo é muito simples e não justifica a complexidade da herança.
+- Se você precisar de múltipla herança (não suportada em Java).
+- Quando a flexibilidade da composição é mais importante que a estrutura fixa.
+- Para algoritmos que mudam frequentemente sua estrutura.
+
+---
+
+### Conclusão
+
+O **Template Method Pattern** é uma solução elegante para algoritmos que compartilham uma estrutura comum, mas precisam de implementações específicas em certas etapas. Ele promove reutilização de código, mantém consistência na execução e facilita a manutenção.
+
+Este padrão é especialmente útil em Java para frameworks e bibliotecas que precisam fornecer uma estrutura base enquanto permitem customização específica. Se você trabalha com processamento de dados, pipelines ou qualquer cenário com fluxos estruturados, o Template Method Pattern é uma ferramenta valiosa para manter seu código organizado e extensível.
+
+---
+
+Gostou deste post? Continue acompanhando para mais conteúdos sobre padrões de design e desenvolvimento em **Java**!
