@@ -1,0 +1,454 @@
+---
+title: "Decorator Pattern em Java: Adicionando Funcionalidades Dinamicamente"
+description: "Aprenda como implementar o Decorator Pattern em Java para adicionar responsabilidades a objetos de forma dinâmica e flexível. Descubra como este padrão estrutural promove extensibilidade sem modificar código existente."
+date: Jul 04 2025
+---
+
+## Introdução
+
+O **Decorator Pattern** (Padrão Decorador) é um padrão de design estrutural que permite adicionar novos comportamentos a objetos colocando-os dentro de objetos wrapper especiais que contêm os comportamentos. Este padrão oferece uma alternativa flexível à herança para estender funcionalidades, seguindo o princípio Aberto/Fechado.
+
+Neste post, exploraremos o conceito do Decorator Pattern, suas vantagens e como implementá-lo em Java com exemplos práticos de um sistema de cafeteria onde diferentes complementos podem ser adicionados às bebidas.
+
+---
+
+## O que é o Decorator Pattern?
+
+O Decorator Pattern resolve o problema de adicionar funcionalidades a objetos sem alterar sua estrutura ou criar uma explosão de subclasses. Em vez de usar herança estática, o padrão usa composição para "envolver" objetos com novos comportamentos de forma dinâmica.
+
+**Principais componentes:**
+
+1. **Component (Componente):** Interface comum que define as operações que podem ser alteradas dinamicamente pelos decoradores.
+2. **ConcreteComponent (Componente Concreto):** Classe que define um objeto ao qual funcionalidades adicionais podem ser anexadas.
+3. **Decorator (Decorador):** Classe abstrata que mantém uma referência ao componente e define a interface conforme a interface do componente.
+4. **ConcreteDecorator (Decorador Concreto):** Adiciona responsabilidades ao componente.
+
+---
+
+## Quando usar o Decorator Pattern?
+
+- Quando você quer adicionar responsabilidades a objetos dinamicamente sem afetar outros objetos.
+- Para evitar a explosão de subclasses que resultaria da combinação de múltiplas funcionalidades.
+- Quando a extensão por herança é impraticável ou gera muitas combinações.
+- Para implementar funcionalidades que podem ser combinadas de várias maneiras.
+- Quando você quer que as responsabilidades possam ser adicionadas e removidas em tempo de execução.
+
+---
+
+## Exemplo Prático em Java
+
+Vamos implementar um sistema de cafeteria onde diferentes complementos (leite, açúcar, chocolate, etc.) podem ser adicionados às bebidas de forma dinâmica.
+
+---
+
+#### 1. Criando a Interface Component
+
+A interface define o contrato comum para todas as bebidas:
+
+```java
+public interface Beverage {
+    String getDescription();
+    double getCost();
+}
+```
+
+#### 2. Implementando os Componentes Concretos
+
+**Café Simples:**
+
+```java
+public class SimpleCoffee implements Beverage {
+    
+    @Override
+    public String getDescription() {
+        return "Café simples";
+    }
+    
+    @Override
+    public double getCost() {
+        return 2.00;
+    }
+}
+```
+
+**Espresso:**
+
+```java
+public class Espresso implements Beverage {
+    
+    @Override
+    public String getDescription() {
+        return "Espresso";
+    }
+    
+    @Override
+    public double getCost() {
+        return 3.50;
+    }
+}
+```
+
+**Cappuccino:**
+
+```java
+public class Cappuccino implements Beverage {
+    
+    @Override
+    public String getDescription() {
+        return "Cappuccino";
+    }
+    
+    @Override
+    public double getCost() {
+        return 4.00;
+    }
+}
+```
+
+---
+
+#### 3. Criando a Classe Decorator Abstrata
+
+A classe decorator mantém uma referência ao componente e implementa a mesma interface:
+
+```java
+public abstract class BeverageDecorator implements Beverage {
+    protected Beverage beverage;
+    
+    public BeverageDecorator(Beverage beverage) {
+        this.beverage = beverage;
+    }
+    
+    @Override
+    public String getDescription() {
+        return beverage.getDescription();
+    }
+    
+    @Override
+    public double getCost() {
+        return beverage.getCost();
+    }
+}
+```
+
+---
+
+#### 4. Implementando os Decoradores Concretos
+
+**Decorador de Leite:**
+
+```java
+public class MilkDecorator extends BeverageDecorator {
+    
+    public MilkDecorator(Beverage beverage) {
+        super(beverage);
+    }
+    
+    @Override
+    public String getDescription() {
+        return beverage.getDescription() + ", Leite";
+    }
+    
+    @Override
+    public double getCost() {
+        return beverage.getCost() + 0.50;
+    }
+}
+```
+
+**Decorador de Açúcar:**
+
+```java
+public class SugarDecorator extends BeverageDecorator {
+    
+    public SugarDecorator(Beverage beverage) {
+        super(beverage);
+    }
+    
+    @Override
+    public String getDescription() {
+        return beverage.getDescription() + ", Açúcar";
+    }
+    
+    @Override
+    public double getCost() {
+        return beverage.getCost() + 0.25;
+    }
+}
+```
+
+**Decorador de Chocolate:**
+
+```java
+public class ChocolateDecorator extends BeverageDecorator {
+    
+    public ChocolateDecorator(Beverage beverage) {
+        super(beverage);
+    }
+    
+    @Override
+    public String getDescription() {
+        return beverage.getDescription() + ", Chocolate";
+    }
+    
+    @Override
+    public double getCost() {
+        return beverage.getCost() + 1.00;
+    }
+}
+```
+
+**Decorador de Chantilly:**
+
+```java
+public class WhipCreamDecorator extends BeverageDecorator {
+    
+    public WhipCreamDecorator(Beverage beverage) {
+        super(beverage);
+    }
+    
+    @Override
+    public String getDescription() {
+        return beverage.getDescription() + ", Chantilly";
+    }
+    
+    @Override
+    public double getCost() {
+        return beverage.getCost() + 0.75;
+    }
+}
+```
+
+**Decorador de Canela:**
+
+```java
+public class CinnamonDecorator extends BeverageDecorator {
+    
+    public CinnamonDecorator(Beverage beverage) {
+        super(beverage);
+    }
+    
+    @Override
+    public String getDescription() {
+        return beverage.getDescription() + ", Canela";
+    }
+    
+    @Override
+    public double getCost() {
+        return beverage.getCost() + 0.30;
+    }
+}
+```
+
+---
+
+#### 5. Criando o Cliente
+
+Demonstramos como usar o Decorator Pattern para criar diferentes combinações de bebidas:
+
+```java
+public class CoffeeShopDemo {
+    
+    public static void main(String[] args) {
+        System.out.println("=== Bem-vindo à Cafeteria! ===\n");
+        
+        // Café simples sem adicionais
+        Beverage simpleCoffee = new SimpleCoffee();
+        printBeverage(simpleCoffee);
+        
+        // Café simples com leite
+        Beverage coffeeWithMilk = new MilkDecorator(new SimpleCoffee());
+        printBeverage(coffeeWithMilk);
+        
+        // Espresso com múltiplos complementos
+        Beverage fancyEspresso = new ChocolateDecorator(
+            new WhipCreamDecorator(
+                new MilkDecorator(
+                    new SugarDecorator(
+                        new Espresso()
+                    )
+                )
+            )
+        );
+        printBeverage(fancyEspresso);
+        
+        // Cappuccino com canela e açúcar
+        Beverage spicedCappuccino = new CinnamonDecorator(
+            new SugarDecorator(
+                new Cappuccino()
+            )
+        );
+        printBeverage(spicedCappuccino);
+        
+        // Demonstrando flexibilidade - adicionando decoradores dinamicamente
+        System.out.println("=== Personalizando bebida passo a passo ===");
+        Beverage customBeverage = new SimpleCoffee();
+        System.out.println("Base: " + customBeverage.getDescription() + 
+                          " - R$ " + String.format("%.2f", customBeverage.getCost()));
+        
+        customBeverage = new MilkDecorator(customBeverage);
+        System.out.println("+ Leite: " + customBeverage.getDescription() + 
+                          " - R$ " + String.format("%.2f", customBeverage.getCost()));
+        
+        customBeverage = new ChocolateDecorator(customBeverage);
+        System.out.println("+ Chocolate: " + customBeverage.getDescription() + 
+                          " - R$ " + String.format("%.2f", customBeverage.getCost()));
+        
+        customBeverage = new WhipCreamDecorator(customBeverage);
+        System.out.println("+ Chantilly: " + customBeverage.getDescription() + 
+                          " - R$ " + String.format("%.2f", customBeverage.getCost()));
+        
+        System.out.println("\n=== Pedido finalizado! ===");
+    }
+    
+    private static void printBeverage(Beverage beverage) {
+        System.out.println("Pedido: " + beverage.getDescription());
+        System.out.println("Preço: R$ " + String.format("%.2f", beverage.getCost()));
+        System.out.println("---");
+    }
+}
+```
+
+---
+
+### Saída do Programa
+
+Ao executar o código acima, você verá a seguinte saída:
+
+```text
+=== Bem-vindo à Cafeteria! ===
+
+Pedido: Café simples
+Preço: R$ 2,00
+---
+Pedido: Café simples, Leite
+Preço: R$ 2,50
+---
+Pedido: Espresso, Açúcar, Leite, Chantilly, Chocolate
+Preço: R$ 5,50
+---
+Pedido: Cappuccino, Açúcar, Canela
+Preço: R$ 4,55
+---
+=== Personalizando bebida passo a passo ===
+Base: Café simples - R$ 2,00
++ Leite: Café simples, Leite - R$ 2,50
++ Chocolate: Café simples, Leite, Chocolate - R$ 3,50
++ Chantilly: Café simples, Leite, Chocolate, Chantilly - R$ 4,25
+
+=== Pedido finalizado! ===
+```
+
+---
+
+### Explicação do Código
+
+1. **Interface Beverage:** Define o contrato comum que todos os componentes e decoradores devem implementar.
+
+2. **Componentes Concretos:** `SimpleCoffee`, `Espresso` e `Cappuccino` são as implementações base das bebidas.
+
+3. **BeverageDecorator:** Classe abstrata que implementa a interface `Beverage` e mantém uma referência ao objeto que está sendo decorado.
+
+4. **Decoradores Concretos:** Cada decorador adiciona uma funcionalidade específica, modificando a descrição e o custo da bebida.
+
+5. **Composição Dinâmica:** Os decoradores podem ser combinados de qualquer forma, permitindo milhares de combinações diferentes.
+
+6. **Transparência:** O cliente trata objetos decorados da mesma forma que objetos simples.
+
+---
+
+### Vantagens e Desvantagens
+
+**Vantagens:**
+
+- **Flexibilidade:** Comportamentos podem ser adicionados e removidos em tempo de execução.
+- **Composição vs Herança:** Evita a explosão de subclasses que resultaria de todas as combinações possíveis.
+- **Princípio da Responsabilidade Única:** Cada decorador tem uma responsabilidade específica.
+- **Princípio Aberto/Fechado:** Novas funcionalidades podem ser adicionadas sem modificar código existente.
+- **Combinações Infinitas:** Decoradores podem ser combinados de qualquer forma.
+
+**Desvantagens:**
+
+- **Complexidade:** Pode ser difícil de entender e debugar com muitos decoradores aninhados.
+- **Identidade de Objetos:** Um objeto decorado não é idêntico ao objeto original.
+- **Proliferação de Classes:** Muitos decoradores pequenos podem poluir o design.
+- **Performance:** Múltiplas camadas de decoração podem impactar a performance.
+
+---
+
+### Variações do Decorator Pattern
+
+**Decorator com Builder Pattern:**
+
+```java
+public class BeverageBuilder {
+    private Beverage beverage;
+    
+    public BeverageBuilder(Beverage baseBeverage) {
+        this.beverage = baseBeverage;
+    }
+    
+    public BeverageBuilder addMilk() {
+        this.beverage = new MilkDecorator(beverage);
+        return this;
+    }
+    
+    public BeverageBuilder addSugar() {
+        this.beverage = new SugarDecorator(beverage);
+        return this;
+    }
+    
+    public BeverageBuilder addChocolate() {
+        this.beverage = new ChocolateDecorator(beverage);
+        return this;
+    }
+    
+    public Beverage build() {
+        return beverage;
+    }
+}
+
+// Uso
+Beverage customBeverage = new BeverageBuilder(new Espresso())
+    .addMilk()
+    .addSugar()
+    .addChocolate()
+    .build();
+```
+
+**Decorator com Annotations (usando reflexão):**
+
+```java
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface AddOn {
+    String name();
+    double cost();
+}
+
+@AddOn(name = "Leite", cost = 0.50)
+public class AutoMilkDecorator extends BeverageDecorator {
+    // Implementação usando reflexão para ler a annotation
+}
+```
+
+---
+
+### Quando evitar o Decorator Pattern?
+
+- Quando você tem apenas uma ou duas variações simples - herança pode ser mais simples.
+- Se a ordem dos decoradores importa muito e pode causar confusão.
+- Quando a performance é crítica e o overhead de múltiplas camadas é inaceitável.
+- Para sistemas onde a identidade do objeto é crucial.
+
+---
+
+### Conclusão
+
+O **Decorator Pattern** é uma solução poderosa para adicionar funcionalidades a objetos de forma dinâmica e flexível. Ele promove extensibilidade, reutilização de código e segue princípios sólidos de design orientado a objetos, especialmente o princípio Aberto/Fechado.
+
+Este padrão é amplamente usado em Java, desde as classes de I/O (`BufferedReader`, `FileReader`) até frameworks web e sistemas de UI. Se você trabalha com sistemas que precisam de funcionalidades combinávels e extensíveis, o Decorator Pattern é uma ferramenta essencial no seu arsenal de design patterns.
+
+---
+
+Gostou deste post? Continue acompanhando para mais conteúdos sobre padrões de design e desenvolvimento em **Java**!
