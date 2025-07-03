@@ -1,0 +1,323 @@
+---
+title: "Composite Pattern em Java: Estruturas Hierárquicas com Tratamento Uniforme"
+description: "Aprenda como implementar o Composite Pattern em Java para criar estruturas hierárquicas complexas tratando objetos individuais e composições de forma uniforme. Descubra como este padrão estrutural pode simplificar o design de sistemas com hierarquias parte-todo."
+date: Jul 03 2025
+---
+
+## Introdução
+
+O **Composite Pattern** (Padrão Composto) é um padrão de design estrutural que permite compor objetos em estruturas de árvore para representar hierarquias parte-todo. Este padrão permite que os clientes tratem objetos individuais e composições de objetos de maneira uniforme, simplificando significativamente o código que trabalha com estruturas hierárquicas complexas.
+
+Neste post, exploraremos o conceito do Composite Pattern, suas vantagens e como implementá-lo em Java com exemplos práticos de um sistema de arquivos e componentes gráficos.
+
+---
+
+## O que é o Composite Pattern?
+
+O Composite Pattern resolve o problema de trabalhar com estruturas hierárquicas onde você precisa tratar objetos individuais (folhas) e grupos de objetos (composições) da mesma forma. Em vez de ter código específico para cada tipo, o padrão permite que você trate tudo através de uma interface comum.
+
+**Principais componentes:**
+
+1. **Component (Componente):** Interface ou classe abstrata que define operações comuns para objetos simples e compostos.
+2. **Leaf (Folha):** Representa objetos finais na hierarquia que não têm filhos.
+3. **Composite (Composto):** Classe que pode conter componentes filhos e implementa operações relacionadas aos filhos.
+4. **Client (Cliente):** Manipula objetos na composição através da interface Component.
+
+---
+
+## Quando usar o Composite Pattern?
+
+- Quando você precisa representar hierarquias parte-todo de objetos.
+- Para tratar objetos individuais e composições de objetos de forma uniforme.
+- Quando você quer que os clientes ignorem a diferença entre composições de objetos e objetos individuais.
+- Para estruturas recursivas como árvores de diretórios, menus, componentes gráficos ou organizações empresariais.
+- Quando você precisa aplicar operações em toda uma estrutura hierárquica.
+
+---
+
+## Exemplo Prático em Java
+
+Vamos implementar um sistema de arquivos simples onde tanto arquivos quanto diretórios podem ser tratados de forma uniforme:
+
+### 1. Criando a Interface Component
+
+A interface `FileSystemComponent` define as operações comuns:
+
+```java
+public interface FileSystemComponent {
+    String getName();
+    long getSize();
+    void display(String prefix);
+    
+    // Operações para compostos (implementação padrão para folhas)
+    default void add(FileSystemComponent component) {
+        throw new UnsupportedOperationException("Operação não suportada");
+    }
+    
+    default void remove(FileSystemComponent component) {
+        throw new UnsupportedOperationException("Operação não suportada");
+    }
+    
+    default List<FileSystemComponent> getChildren() {
+        return Collections.emptyList();
+    }
+}
+```
+
+### 2. Implementando a Leaf (Arquivo)
+
+A classe `File` representa um arquivo individual:
+
+```java
+public class File implements FileSystemComponent {
+    private String name;
+    private long size;
+    
+    public File(String name, long size) {
+        this.name = name;
+        this.size = size;
+    }
+    
+    @Override
+    public String getName() {
+        return name;
+    }
+    
+    @Override
+    public long getSize() {
+        return size;
+    }
+    
+    @Override
+    public void display(String prefix) {
+        System.out.println(prefix + "📄 " + name + " (" + size + " bytes)");
+    }
+}
+```
+
+### 3. Implementando o Composite (Diretório)
+
+A classe `Directory` pode conter outros componentes:
+
+```java
+import java.util.*;
+
+public class Directory implements FileSystemComponent {
+    private String name;
+    private List<FileSystemComponent> children;
+    
+    public Directory(String name) {
+        this.name = name;
+        this.children = new ArrayList<>();
+    }
+    
+    @Override
+    public String getName() {
+        return name;
+    }
+    
+    @Override
+    public long getSize() {
+        return children.stream()
+                      .mapToLong(FileSystemComponent::getSize)
+                      .sum();
+    }
+    
+    @Override
+    public void display(String prefix) {
+        System.out.println(prefix + "📁 " + name + "/ (" + getSize() + " bytes)");
+        String childPrefix = prefix + "  ";
+        
+        for (FileSystemComponent child : children) {
+            child.display(childPrefix);
+        }
+    }
+    
+    @Override
+    public void add(FileSystemComponent component) {
+        children.add(component);
+    }
+    
+    @Override
+    public void remove(FileSystemComponent component) {
+        children.remove(component);
+    }
+    
+    @Override
+    public List<FileSystemComponent> getChildren() {
+        return new ArrayList<>(children);
+    }
+}
+```
+
+### 4. Exemplo de Uso
+
+```java
+public class FileSystemExample {
+    public static void main(String[] args) {
+        // Criando arquivos
+        FileSystemComponent arquivo1 = new File("documento.txt", 1024);
+        FileSystemComponent arquivo2 = new File("imagem.jpg", 2048);
+        FileSystemComponent arquivo3 = new File("README.md", 512);
+        
+        // Criando diretórios
+        Directory diretorioRaiz = new Directory("projeto");
+        Directory diretorioSrc = new Directory("src");
+        Directory diretorioDocs = new Directory("docs");
+        
+        // Construindo a hierarquia
+        diretorioSrc.add(new File("Main.java", 1536));
+        diretorioSrc.add(new File("Utils.java", 768));
+        
+        diretorioDocs.add(arquivo3);
+        diretorioDocs.add(new File("manual.pdf", 4096));
+        
+        diretorioRaiz.add(arquivo1);
+        diretorioRaiz.add(arquivo2);
+        diretorioRaiz.add(diretorioSrc);
+        diretorioRaiz.add(diretorioDocs);
+        
+        // Exibindo a estrutura
+        System.out.println("Estrutura do Sistema de Arquivos:");
+        diretorioRaiz.display("");
+        
+        System.out.println("\nTamanho total: " + diretorioRaiz.getSize() + " bytes");
+        
+        // Tratamento uniforme
+        processarComponente(arquivo1);    // Arquivo individual
+        processarComponente(diretorioRaiz); // Diretório completo
+    }
+    
+    // Método que trata tanto arquivos quanto diretórios uniformemente
+    public static void processarComponente(FileSystemComponent component) {
+        System.out.println("Processando: " + component.getName() + 
+                         " (Tamanho: " + component.getSize() + " bytes)");
+    }
+}
+```
+
+### Exemplo Avançado: Sistema de Componentes Gráficos
+
+```java
+// Interface para componentes gráficos
+public interface GraphicComponent {
+    void render();
+    void move(int x, int y);
+    Rectangle getBounds();
+}
+
+// Componente simples (Leaf)
+public class Shape implements GraphicComponent {
+    private String type;
+    private int x, y, width, height;
+    
+    public Shape(String type, int x, int y, int width, int height) {
+        this.type = type;
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+    }
+    
+    @Override
+    public void render() {
+        System.out.println("Renderizando " + type + " em (" + x + "," + y + ")");
+    }
+    
+    @Override
+    public void move(int deltaX, int deltaY) {
+        this.x += deltaX;
+        this.y += deltaY;
+    }
+    
+    @Override
+    public Rectangle getBounds() {
+        return new Rectangle(x, y, width, height);
+    }
+}
+
+// Componente composto
+public class GraphicGroup implements GraphicComponent {
+    private List<GraphicComponent> components = new ArrayList<>();
+    private String name;
+    
+    public GraphicGroup(String name) {
+        this.name = name;
+    }
+    
+    public void add(GraphicComponent component) {
+        components.add(component);
+    }
+    
+    public void remove(GraphicComponent component) {
+        components.remove(component);
+    }
+    
+    @Override
+    public void render() {
+        System.out.println("Renderizando grupo: " + name);
+        for (GraphicComponent component : components) {
+            component.render();
+        }
+    }
+    
+    @Override
+    public void move(int deltaX, int deltaY) {
+        for (GraphicComponent component : components) {
+            component.move(deltaX, deltaY);
+        }
+    }
+    
+    @Override
+    public Rectangle getBounds() {
+        if (components.isEmpty()) {
+            return new Rectangle(0, 0, 0, 0);
+        }
+        
+        Rectangle bounds = components.get(0).getBounds();
+        for (int i = 1; i < components.size(); i++) {
+            bounds = bounds.union(components.get(i).getBounds());
+        }
+        return bounds;
+    }
+}
+```
+
+---
+
+## Vantagens do Composite Pattern
+
+1. **Tratamento Uniforme:** Clientes podem tratar objetos individuais e composições da mesma forma.
+2. **Flexibilidade:** Facilita a adição de novos tipos de componentes.
+3. **Estruturas Complexas:** Permite criar estruturas hierárquicas arbitrariamente complexas.
+4. **Recursividade Natural:** O padrão funciona naturalmente com estruturas recursivas.
+
+---
+
+## Quando evitar o Composite Pattern?
+
+- Quando você não tem estruturas hierárquicas ou parte-todo em seu sistema.
+- Se a hierarquia é muito simples e não justifica a complexidade adicional.
+- Quando o desempenho é crítico e o overhead das chamadas polimórficas é significativo.
+- Para casos onde objetos individuais e compostos têm comportamentos muito diferentes.
+- Quando você precisa de forte tipagem e quer evitar operações inválidas em tempo de compilação.
+
+---
+
+## Padrões Relacionados
+
+- **Decorator:** Adiciona responsabilidades a objetos dinamicamente.
+- **Iterator:** Para percorrer elementos em estruturas compostas.
+- **Visitor:** Para definir operações em estruturas compostas sem modificar as classes.
+
+---
+
+## Conclusão
+
+O **Composite Pattern** é uma solução elegante para trabalhar com estruturas hierárquicas complexas, permitindo que você trate objetos individuais e composições de forma uniforme. Ele promove código limpo, flexível e facilmente extensível, sendo especialmente útil em sistemas que lidam com estruturas em árvore.
+
+Este padrão é fundamental em Java para frameworks de GUI, sistemas de arquivos, parsers de documentos e qualquer aplicação que precise gerenciar hierarquias parte-todo. Se você trabalha com estruturas recursivas ou hierárquicas, o Composite Pattern é uma ferramenta indispensável para manter seu código organizando e maintível.
+
+---
+
+Gostou deste post? Continue acompanhando para mais conteúdos sobre padrões de design e desenvolvimento em **Java**!
