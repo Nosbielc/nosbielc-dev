@@ -56,7 +56,7 @@ export default function PostPage({
             <MDXRemote {...source} components={components} />
           </article>
         </main>
-        <div className="grid md:grid-cols-2 lg:-mx-24 mt-12 gap-4 md:gap-0">
+        <div className="flex flex-col md:grid md:grid-cols-2 lg:-mx-24 mt-12 gap-6 md:gap-0">
           {prevPost && (
             <Link href={`/posts/${prevPost.slug}`}>
               <a className="py-8 px-10 text-center md:text-right rounded-lg md:rounded-r-none md:rounded-l-lg backdrop-blur-lg bg-white dark:bg-black dark:bg-opacity-30 bg-opacity-10 hover:bg-opacity-20 dark:hover:bg-opacity-50 transition border border-gray-800 dark:border-white border-opacity-10 dark:border-opacity-10 md:border-r-0 flex flex-col">
