@@ -1,0 +1,289 @@
+---
+title: "Flyweight Pattern em Java: Otimizando Memória com Compartilhamento de Objetos"
+description: "Aprenda como implementar o Flyweight Pattern em Java para otimizar o uso de memória através do compartilhamento eficiente de objetos similares. Descubra como este padrão estrutural pode melhorar a performance de aplicações."
+date: Jul 08 2025
+---
+
+## Introdução
+
+O **Flyweight Pattern** (Padrão Peso-Leve) é um padrão de design estrutural que minimiza o uso de memória compartilhando eficientemente objetos similares. Este padrão é particularmente útil quando você precisa criar um grande número de objetos similares, onde a maioria dos dados pode ser compartilhada.
+
+Neste post, exploraremos o conceito do Flyweight Pattern, suas vantagens e como implementá-lo em Java com exemplos práticos que demonstram a economia de memória.
+
+---
+
+## O que é o Flyweight Pattern?
+
+O Flyweight Pattern resolve o problema de consumo excessivo de memória quando você precisa criar muitos objetos similares. Em vez de armazenar todos os dados em cada objeto, o padrão separa os dados em duas categorias:
+
+- **Estado Intrínseco:** Dados que podem ser compartilhados entre múltiplos objetos
+- **Estado Extrínseco:** Dados únicos para cada objeto, passados como parâmetros
+
+**Principais componentes:**
+
+1. **Flyweight:** Interface que define métodos através dos quais os flyweights podem receber e atuar sobre estados extrínsecos.
+2. **ConcreteFlyweight:** Implementa a interface Flyweight e adiciona armazenamento para estado intrínseco.
+3. **UnsharedConcreteFlyweight:** Não compartilha estado e armazena todo o estado necessário.
+4. **FlyweightFactory:** Cria e gerencia objetos flyweight, garantindo que sejam compartilhados adequadamente.
+5. **Context:** Mantém referências a flyweights e armazena estados extrínsecos.
+
+---
+
+## Quando usar o Flyweight Pattern?
+
+- Quando sua aplicação precisa gerar um grande número de objetos similares.
+- Quando o custo de armazenamento é alto devido à grande quantidade de objetos.
+- Quando grupos de objetos podem ser substituídos por poucos objetos compartilhados.
+- Quando o estado extrínseco pode ser facilmente separado do estado intrínseco.
+- Quando você quer reduzir o uso de memória sem afetar a funcionalidade.
+
+---
+
+## Exemplo Prático em Java
+
+Vamos implementar um sistema de renderização de caracteres para um editor de texto, onde cada caractere tem propriedades como fonte, tamanho e cor que podem ser compartilhadas.
+
+---
+
+#### 1. Definindo a Interface Flyweight
+
+A interface define o contrato para todos os flyweights:
+
+```java
+public interface CharacterFlyweight {
+    void render(int x, int y, String color);
+}
+```
+
+#### 2. Implementando o Flyweight Concreto
+
+Esta classe armazena o estado intrínseco (fonte e tamanho):
+
+```java
+public class ConcreteCharacter implements CharacterFlyweight {
+    private final char character;
+    private final String font;
+    private final int size;
+    
+    public ConcreteCharacter(char character, String font, int size) {
+        this.character = character;
+        this.font = font;
+        this.size = size;
+    }
+    
+    @Override
+    public void render(int x, int y, String color) {
+        System.out.println("Renderizando caractere '" + character + "' em (" + x + "," + y + 
+                         ") com fonte " + font + ", tamanho " + size + " e cor " + color);
+    }
+    
+    public char getCharacter() {
+        return character;
+    }
+    
+    public String getFont() {
+        return font;
+    }
+    
+    public int getSize() {
+        return size;
+    }
+}
+```
+
+#### 3. Criando a Factory
+
+A factory garante que flyweights sejam compartilhados:
+
+```java
+import java.util.HashMap;
+import java.util.Map;
+
+public class CharacterFlyweightFactory {
+    private static final Map<String, CharacterFlyweight> flyweights = new HashMap<>();
+    
+    public static CharacterFlyweight getFlyweight(char character, String font, int size) {
+        String key = character + font + size;
+        
+        CharacterFlyweight flyweight = flyweights.get(key);
+        if (flyweight == null) {
+            flyweight = new ConcreteCharacter(character, font, size);
+            flyweights.put(key, flyweight);
+            System.out.println("Criando novo flyweight para: " + key);
+        }
+        return flyweight;
+    }
+    
+    public static int getCreatedFlyweightsCount() {
+        return flyweights.size();
+    }
+    
+    public static void printFlyweights() {
+        System.out.println("Flyweights criados: " + flyweights.size());
+        for (Map.Entry<String, CharacterFlyweight> entry : flyweights.entrySet()) {
+            System.out.println("- " + entry.getKey());
+        }
+    }
+}
+```
+
+#### 4. Implementando o Context
+
+O contexto mantém o estado extrínseco:
+
+```java
+public class CharacterContext {
+    private final CharacterFlyweight flyweight;
+    private final int x;
+    private final int y;
+    private final String color;
+    
+    public CharacterContext(char character, String font, int size, int x, int y, String color) {
+        this.flyweight = CharacterFlyweightFactory.getFlyweight(character, font, size);
+        this.x = x;
+        this.y = y;
+        this.color = color;
+    }
+    
+    public void render() {
+        flyweight.render(x, y, color);
+    }
+}
+```
+
+#### 5. Criando o Cliente
+
+Exemplo de uso do padrão:
+
+```java
+import java.util.ArrayList;
+import java.util.List;
+
+public class TextEditor {
+    private List<CharacterContext> characters = new ArrayList<>();
+    
+    public void addCharacter(char character, String font, int size, int x, int y, String color) {
+        CharacterContext context = new CharacterContext(character, font, size, x, y, color);
+        characters.add(context);
+    }
+    
+    public void render() {
+        System.out.println("Renderizando texto:");
+        for (CharacterContext context : characters) {
+            context.render();
+        }
+    }
+    
+    public static void main(String[] args) {
+        TextEditor editor = new TextEditor();
+        
+        // Adicionando caracteres com propriedades similares
+        editor.addCharacter('H', "Arial", 12, 0, 0, "preto");
+        editor.addCharacter('e', "Arial", 12, 10, 0, "preto");
+        editor.addCharacter('l', "Arial", 12, 20, 0, "preto");
+        editor.addCharacter('l', "Arial", 12, 30, 0, "preto");
+        editor.addCharacter('o', "Arial", 12, 40, 0, "preto");
+        editor.addCharacter(' ', "Arial", 12, 50, 0, "preto");
+        editor.addCharacter('W', "Arial", 12, 60, 0, "azul");
+        editor.addCharacter('o', "Arial", 12, 70, 0, "azul");
+        editor.addCharacter('r', "Arial", 12, 80, 0, "azul");
+        editor.addCharacter('l', "Arial", 12, 90, 0, "azul");
+        editor.addCharacter('d', "Arial", 12, 100, 0, "azul");
+        
+        // Renderizando o texto
+        editor.render();
+        
+        System.out.println("\n--- Estatísticas ---");
+        System.out.println("Caracteres totais: " + editor.characters.size());
+        CharacterFlyweightFactory.printFlyweights();
+    }
+}
+```
+
+### Saída do Programa
+
+```
+Criando novo flyweight para: HArial12
+Criando novo flyweight para: eArial12
+Criando novo flyweight para: lArial12
+Criando novo flyweight para: oArial12
+Criando novo flyweight para:  Arial12
+Criando novo flyweight para: WArial12
+Criando novo flyweight para: rArial12
+Criando novo flyweight para: dArial12
+
+Renderizando texto:
+Renderizando caractere 'H' em (0,0) com fonte Arial, tamanho 12 e cor preto
+Renderizando caractere 'e' em (10,0) com fonte Arial, tamanho 12 e cor preto
+Renderizando caractere 'l' em (20,0) com fonte Arial, tamanho 12 e cor preto
+Renderizando caractere 'l' em (30,0) com fonte Arial, tamanho 12 e cor preto
+Renderizando caractere 'o' em (40,0) com fonte Arial, tamanho 12 e cor preto
+Renderizando caractere ' ' em (50,0) com fonte Arial, tamanho 12 e cor preto
+Renderizando caractere 'W' em (60,0) com fonte Arial, tamanho 12 e cor azul
+Renderizando caractere 'o' em (70,0) com fonte Arial, tamanho 12 e cor azul
+Renderizando caractere 'r' em (80,0) com fonte Arial, tamanho 12 e cor azul
+Renderizando caractere 'l' em (90,0) com fonte Arial, tamanho 12 e cor azul
+Renderizando caractere 'd' em (100,0) com fonte Arial, tamanho 12 e cor azul
+
+--- Estatísticas ---
+Caracteres totais: 11
+Flyweights criados: 8
+- HArial12
+- eArial12
+- lArial12
+- oArial12
+-  Arial12
+- WArial12
+- rArial12
+- dArial12
+```
+
+### Explicação do Código
+
+1. **Separação de Estados:** O estado intrínseco (caractere, fonte, tamanho) é compartilhado, enquanto o estado extrínseco (posição, cor) é passado como parâmetro.
+
+2. **Compartilhamento:** Caracteres repetidos (como 'l' e 'o') reutilizam o mesmo flyweight, economizando memória.
+
+3. **Factory:** Controla a criação e reutilização dos flyweights, garantindo que objetos similares sejam compartilhados.
+
+4. **Context:** Mantém as informações específicas de cada instância sem duplicar o estado intrínseco.
+
+---
+
+## Vantagens e Desvantagens
+
+### Vantagens
+
+- **Economia de Memória:** Reduz drasticamente o consumo de memória quando você tem muitos objetos similares.
+- **Performance:** Menos objetos significam menos garbage collection e melhor performance.
+- **Compartilhamento:** Objetos são reutilizados eficientemente.
+- **Transparência:** O cliente não precisa se preocupar com a otimização de memória.
+
+### Desvantagens
+
+- **Complexidade:** Adiciona complexidade ao código, especialmente na separação de estados.
+- **Overhead de Computação:** Pode haver overhead computacional ao calcular estados extrínsecos.
+- **Troca de Tempo por Espaço:** Economiza memória mas pode aumentar o tempo de processamento.
+- **Sincronização:** Em ambientes multi-thread, pode ser necessário sincronizar o acesso à factory.
+
+---
+
+## Quando evitar o Flyweight Pattern?
+
+- Quando você tem poucos objetos similares - o overhead pode não compensar.
+- Se os objetos não compartilham estado suficiente para justificar a complexidade.
+- Quando o estado extrínseco é muito complexo ou difícil de separar.
+- Para aplicações simples onde o uso de memória não é uma preocupação.
+- Quando a performance de acesso aos dados é mais crítica que o uso de memória.
+
+---
+
+## Conclusão
+
+O Flyweight Pattern é uma solução elegante para otimizar o uso de memória em aplicações que precisam criar muitos objetos similares. Embora adicione complexidade ao código, os benefícios de economia de memória e melhoria de performance podem ser significativos em cenários apropriados.
+
+A chave para o sucesso na implementação do Flyweight Pattern está em identificar corretamente quais dados podem ser compartilhados (estado intrínseco) e quais devem ser únicos para cada instância (estado extrínseco).
+
+---
+
+Gostou deste post? Continue acompanhando para mais conteúdos sobre padrões de design e otimização em **Java**!
