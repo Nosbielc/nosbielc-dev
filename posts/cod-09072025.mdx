@@ -1,0 +1,462 @@
+---
+title: "Proxy Pattern em Java: Controlando Acesso a Objetos com Eficiência"
+description: "Aprenda como implementar o Proxy Pattern em Java para controlar o acesso a objetos, implementar lazy loading e adicionar funcionalidades extras. Descubra como este padrão estrutural pode melhorar a performance e segurança das suas aplicações."
+date: Jul 09 2025
+---
+
+## Introdução
+
+O **Proxy Pattern** (Padrão Proxy) é um padrão de design estrutural que fornece um substituto ou marcador de posição para outro objeto, controlando o acesso a ele. Este padrão atua como um intermediário que pode adicionar funcionalidades extras como validação, cache, lazy loading ou controle de acesso, sem alterar a interface do objeto original.
+
+Neste post, exploraremos o conceito do Proxy Pattern, suas vantagens e como implementá-lo em Java com exemplos práticos que demonstram diferentes tipos de proxies e suas aplicações em cenários reais.
+
+---
+
+## O que é o Proxy Pattern?
+
+O Proxy Pattern resolve problemas relacionados ao controle de acesso, otimização de recursos e adição de funcionalidades transparentes a objetos existentes. Em vez de permitir acesso direto ao objeto real, o padrão introduz um proxy que controla quando e como o objeto real é acessado.
+
+**Principais componentes:**
+
+1. **Subject:** Interface comum que define as operações disponíveis tanto para o objeto real quanto para o proxy.
+2. **RealSubject:** A classe que contém a lógica de negócio real que queremos controlar o acesso.
+3. **Proxy:** Mantém uma referência ao objeto real e controla o acesso a ele, podendo adicionar funcionalidades extras.
+4. **Client:** Usa o proxy através da interface Subject, sem saber que está interagindo com um intermediário.
+
+**Tipos comuns de Proxy:**
+
+- **Virtual Proxy:** Controla o acesso a objetos caros de criar (lazy loading)
+- **Protection Proxy:** Controla o acesso baseado em permissões
+- **Remote Proxy:** Representa um objeto localizado em outro espaço de endereço
+- **Cache Proxy:** Adiciona cache para otimizar chamadas repetidas
+
+---
+
+## Quando usar o Proxy Pattern?
+
+- Quando você precisa controlar o acesso a um objeto de forma transparente.
+- Para implementar lazy loading de objetos caros de criar ou carregar.
+- Quando você quer adicionar funcionalidades como cache, log ou validação sem modificar o objeto original.
+- Para controlar acesso baseado em permissões ou roles.
+- Quando você precisa representar objetos remotos localmente.
+- Para monitorar ou registrar o uso de um objeto.
+
+---
+
+## Exemplo Prático em Java
+
+Vamos implementar diferentes tipos de proxies usando um sistema de acesso a imagens, demonstrando Virtual Proxy (lazy loading) e Protection Proxy (controle de acesso):
+
+### 1. Definindo a Interface Subject
+
+A interface comum para imagens reais e proxies:
+
+```java
+public interface Image {
+    void display();
+    String getFileName();
+    long getFileSize();
+}
+```
+
+### 2. Implementando o RealSubject
+
+A classe que representa uma imagem real (cara de carregar):
+
+```java
+public class RealImage implements Image {
+    private String fileName;
+    private byte[] imageData;
+    private long fileSize;
+    
+    public RealImage(String fileName) {
+        this.fileName = fileName;
+        loadImageFromDisk();
+    }
+    
+    private void loadImageFromDisk() {
+        System.out.println("Carregando imagem do disco: " + fileName);
+        
+        // Simula carregamento pesado do disco
+        try {
+            Thread.sleep(2000); // Simula tempo de carregamento
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        
+        // Simula dados da imagem
+        this.imageData = new byte[1024 * 1024]; // 1MB de dados simulados
+        this.fileSize = imageData.length;
+        
+        System.out.println("Imagem " + fileName + " carregada com sucesso!");
+    }
+    
+    @Override
+    public void display() {
+        System.out.println("Exibindo imagem: " + fileName + 
+                         " (Tamanho: " + fileSize + " bytes)");
+    }
+    
+    @Override
+    public String getFileName() {
+        return fileName;
+    }
+    
+    @Override
+    public long getFileSize() {
+        return fileSize;
+    }
+}
+```
+
+### 3. Implementando o Virtual Proxy
+
+Este proxy implementa lazy loading para otimizar o carregamento:
+
+```java
+public class VirtualImageProxy implements Image {
+    private String fileName;
+    private RealImage realImage;
+    private long estimatedSize;
+    
+    public VirtualImageProxy(String fileName) {
+        this.fileName = fileName;
+        this.estimatedSize = estimateFileSize(fileName);
+    }
+    
+    private long estimateFileSize(String fileName) {
+        // Simula estimativa do tamanho sem carregar o arquivo
+        return fileName.length() * 50000; // Estimativa baseada no nome
+    }
+    
+    @Override
+    public void display() {
+        // Lazy loading: só carrega quando realmente precisa exibir
+        if (realImage == null) {
+            System.out.println("Virtual Proxy: Iniciando carregamento lazy da imagem...");
+            realImage = new RealImage(fileName);
+        }
+        realImage.display();
+    }
+    
+    @Override
+    public String getFileName() {
+        return fileName;
+    }
+    
+    @Override
+    public long getFileSize() {
+        if (realImage != null) {
+            return realImage.getFileSize();
+        }
+        return estimatedSize; // Retorna estimativa se ainda não carregou
+    }
+}
+```
+
+### 4. Implementando o Protection Proxy
+
+Este proxy controla o acesso baseado em permissões:
+
+```java
+public class ProtectionImageProxy implements Image {
+    private Image targetImage;
+    private String userRole;
+    private String requiredPermission;
+    
+    public ProtectionImageProxy(Image targetImage, String userRole, String requiredPermission) {
+        this.targetImage = targetImage;
+        this.userRole = userRole;
+        this.requiredPermission = requiredPermission;
+    }
+    
+    private boolean hasPermission() {
+        // Simula verificação de permissões
+        if ("ADMIN".equals(userRole)) {
+            return true; // Admin tem acesso a tudo
+        }
+        
+        if ("CONFIDENTIAL".equals(requiredPermission) && "USER".equals(userRole)) {
+            return false; // Usuário comum não pode ver imagens confidenciais
+        }
+        
+        return "PUBLIC".equals(requiredPermission);
+    }
+    
+    @Override
+    public void display() {
+        if (hasPermission()) {
+            System.out.println("Protection Proxy: Acesso autorizado");
+            targetImage.display();
+        } else {
+            System.out.println("Protection Proxy: ACESSO NEGADO - Permissão insuficiente");
+            System.out.println("Usuário: " + userRole + " | Requerido: " + requiredPermission);
+        }
+    }
+    
+    @Override
+    public String getFileName() {
+        if (hasPermission()) {
+            return targetImage.getFileName();
+        }
+        return "ACESSO_NEGADO.jpg";
+    }
+    
+    @Override
+    public long getFileSize() {
+        if (hasPermission()) {
+            return targetImage.getFileSize();
+        }
+        return 0; // Não revela informações se sem permissão
+    }
+}
+```
+
+### 5. Implementando um Cache Proxy
+
+Proxy que adiciona funcionalidade de cache:
+
+```java
+import java.util.HashMap;
+import java.util.Map;
+
+public class CacheImageProxy implements Image {
+    private static final Map<String, String> displayCache = new HashMap<>();
+    private Image targetImage;
+    
+    public CacheImageProxy(Image targetImage) {
+        this.targetImage = targetImage;
+    }
+    
+    @Override
+    public void display() {
+        String cacheKey = targetImage.getFileName();
+        
+        if (displayCache.containsKey(cacheKey)) {
+            System.out.println("Cache Proxy: Exibindo do cache - " + displayCache.get(cacheKey));
+        } else {
+            System.out.println("Cache Proxy: Não encontrado no cache, carregando...");
+            targetImage.display();
+            
+            // Adiciona ao cache
+            displayCache.put(cacheKey, "Imagem " + cacheKey + " (cached)");
+            System.out.println("Cache Proxy: Imagem adicionada ao cache");
+        }
+    }
+    
+    @Override
+    public String getFileName() {
+        return targetImage.getFileName();
+    }
+    
+    @Override
+    public long getFileSize() {
+        return targetImage.getFileSize();
+    }
+    
+    public static void clearCache() {
+        displayCache.clear();
+        System.out.println("Cache Proxy: Cache limpo");
+    }
+}
+```
+
+### 6. Criando o Cliente
+
+Exemplo demonstrando o uso dos diferentes proxies:
+
+```java
+public class ProxyPatternDemo {
+    public static void main(String[] args) {
+        System.out.println("=== Demonstração do Proxy Pattern ===\n");
+        
+        // 1. Virtual Proxy - Lazy Loading
+        System.out.println("1. VIRTUAL PROXY (Lazy Loading):");
+        Image virtualProxy = new VirtualImageProxy("foto_familia.jpg");
+        
+        System.out.println("Obtendo informações sem carregar:");
+        System.out.println("Nome: " + virtualProxy.getFileName());
+        System.out.println("Tamanho estimado: " + virtualProxy.getFileSize() + " bytes");
+        
+        System.out.println("\nPrimeira exibição (vai carregar):");
+        virtualProxy.display();
+        
+        System.out.println("\nSegunda exibição (já carregado):");
+        virtualProxy.display();
+        
+        System.out.println("\n" + "=".repeat(50) + "\n");
+        
+        // 2. Protection Proxy - Controle de Acesso
+        System.out.println("2. PROTECTION PROXY (Controle de Acesso):");
+        
+        Image realImage = new RealImage("documento_confidencial.pdf");
+        
+        // Usuário comum tentando acessar documento confidencial
+        Image protectedProxyUser = new ProtectionImageProxy(realImage, "USER", "CONFIDENTIAL");
+        System.out.println("\nUsuário comum tentando acessar:");
+        protectedProxyUser.display();
+        
+        // Admin acessando o mesmo documento
+        Image protectedProxyAdmin = new ProtectionImageProxy(realImage, "ADMIN", "CONFIDENTIAL");
+        System.out.println("\nAdmin acessando:");
+        protectedProxyAdmin.display();
+        
+        System.out.println("\n" + "=".repeat(50) + "\n");
+        
+        // 3. Cache Proxy
+        System.out.println("3. CACHE PROXY:");
+        Image baseImage = new VirtualImageProxy("banner_site.png");
+        Image cachedProxy = new CacheImageProxy(baseImage);
+        
+        System.out.println("\nPrimeira exibição (não está no cache):");
+        cachedProxy.display();
+        
+        System.out.println("\nSegunda exibição (do cache):");
+        cachedProxy.display();
+        
+        System.out.println("\n" + "=".repeat(50) + "\n");
+        
+        // 4. Combinando Proxies
+        System.out.println("4. COMBINANDO PROXIES:");
+        Image realImg = new RealImage("relatorio_vendas.jpg");
+        Image protectedImg = new ProtectionImageProxy(realImg, "ADMIN", "CONFIDENTIAL");
+        Image cachedProtectedImg = new CacheImageProxy(protectedImg);
+        
+        System.out.println("\nProxy combinado (Protection + Cache):");
+        cachedProtectedImg.display();
+        cachedProtectedImg.display(); // Segunda chamada usa cache
+        
+        // Limpando cache para demonstração
+        CacheImageProxy.clearCache();
+    }
+}
+```
+
+### Saída do Programa
+
+```
+=== Demonstração do Proxy Pattern ===
+
+1. VIRTUAL PROXY (Lazy Loading):
+Obtendo informações sem carregar:
+Nome: foto_familia.jpg
+Tamanho estimado: 800000 bytes
+
+Primeira exibição (vai carregar):
+Virtual Proxy: Iniciando carregamento lazy da imagem...
+Carregando imagem do disco: foto_familia.jpg
+Imagem foto_familia.jpg carregada com sucesso!
+Exibindo imagem: foto_familia.jpg (Tamanho: 1048576 bytes)
+
+Segunda exibição (já carregado):
+Exibindo imagem: foto_familia.jpg (Tamanho: 1048576 bytes)
+
+==================================================
+
+2. PROTECTION PROXY (Controle de Acesso):
+Carregando imagem do disco: documento_confidencial.pdf
+Imagem documento_confidencial.pdf carregada com sucesso!
+
+Usuário comum tentando acessar:
+Protection Proxy: ACESSO NEGADO - Permissão insuficiente
+Usuário: USER | Requerido: CONFIDENTIAL
+
+Admin acessando:
+Protection Proxy: Acesso autorizado
+Exibindo imagem: documento_confidencial.pdf (Tamanho: 1048576 bytes)
+
+==================================================
+
+3. CACHE PROXY:
+
+Primeira exibição (não está no cache):
+Cache Proxy: Não encontrado no cache, carregando...
+Virtual Proxy: Iniciando carregamento lazy da imagem...
+Carregando imagem do disco: banner_site.png
+Imagem banner_site.png carregada com sucesso!
+Exibindo imagem: banner_site.png (Tamanho: 1048576 bytes)
+Cache Proxy: Imagem adicionada ao cache
+
+Segunda exibição (do cache):
+Cache Proxy: Exibindo do cache - Imagem banner_site.png (cached)
+
+==================================================
+
+4. COMBINANDO PROXIES:
+
+Proxy combinado (Protection + Cache):
+Cache Proxy: Não encontrado no cache, carregando...
+Protection Proxy: Acesso autorizado
+Exibindo imagem: relatorio_vendas.jpg (Tamanho: 1048576 bytes)
+Cache Proxy: Imagem adicionada ao cache
+Cache Proxy: Exibindo do cache - Imagem relatorio_vendas.jpg (cached)
+Cache Proxy: Cache limpo
+```
+
+### Explicação do Código
+
+1. **Virtual Proxy:** Implementa lazy loading, só carregando a imagem real quando necessário para exibição, otimizando recursos.
+
+2. **Protection Proxy:** Controla acesso baseado em roles e permissões, garantindo segurança sem modificar o objeto original.
+
+3. **Cache Proxy:** Adiciona funcionalidade de cache transparente, melhorando performance em acessos repetidos.
+
+4. **Combinação de Proxies:** Demonstra como diferentes proxies podem ser combinados para criar funcionalidades complexas.
+
+---
+
+## Vantagens do Proxy Pattern
+
+1. **Controle de Acesso:** Permite controlar quando e como um objeto é acessado sem modificar sua interface.
+
+2. **Otimização de Recursos:** Implementa lazy loading e cache para melhorar performance.
+
+3. **Transparência:** O cliente usa o proxy da mesma forma que usaria o objeto real.
+
+4. **Flexibilidade:** Permite adicionar funcionalidades extras (log, validação, cache) sem alterar o código existente.
+
+5. **Segurança:** Pode implementar controles de acesso e validação antes de delegar ao objeto real.
+
+6. **Desacoplamento:** Separa as preocupações de controle de acesso da lógica de negócio principal.
+
+---
+
+## Desvantagens do Proxy Pattern
+
+1. **Complexidade Adicional:** Adiciona uma camada extra que pode complicar o código.
+
+2. **Overhead de Performance:** Cada chamada passa pelo proxy, podendo introduzir latência.
+
+3. **Manutenção:** Proxies precisam ser mantidos sincronizados com mudanças na interface do objeto real.
+
+4. **Debugging Difícil:** Pode ser mais difícil debuggar problemas quando há múltiplas camadas de proxies.
+
+---
+
+## Quando evitar o Proxy Pattern?
+
+- Quando o objeto real é simples e não justifica a complexidade adicional do proxy.
+- Se a performance é crítica e o overhead do proxy é inaceitável.
+- Quando você precisa de acesso direto às implementações específicas do objeto real.
+- Para objetos que são sempre necessários (não se beneficiam de lazy loading).
+- Quando a interface do objeto real muda frequentemente, tornando difícil manter o proxy sincronizado.
+
+---
+
+## Padrões Relacionados
+
+- **Decorator Pattern:** Ambos adicionam funcionalidades a objetos, mas Decorator foca em adicionar responsabilidades enquanto Proxy foca em controlar acesso.
+- **Adapter Pattern:** Ambos atuam como intermediários, mas Adapter adapta interfaces incompatíveis enquanto Proxy mantém a mesma interface.
+- **Facade Pattern:** Ambos fornecem uma interface simplificada, mas Facade simplifica múltiplas interfaces enquanto Proxy controla acesso a uma única interface.
+
+---
+
+## Conclusão
+
+O **Proxy Pattern** é uma ferramenta poderosa para controlar o acesso a objetos, implementar otimizações como lazy loading e cache, e adicionar funcionalidades de segurança de forma transparente. Sua flexibilidade permite que seja usado em diversos cenários, desde otimização de recursos até controle de segurança.
+
+A chave para o sucesso na implementação do Proxy Pattern está em identificar corretamente quando o controle de acesso ou funcionalidades extras são necessários, e escolher o tipo de proxy apropriado para cada situação. Seja para melhorar performance com lazy loading, implementar segurança com controle de acesso, ou adicionar cache para otimização, o Proxy Pattern oferece uma solução elegante e reutilizável.
+
+---
+
+Gostou deste post? Continue acompanhando para mais conteúdos sobre padrões de design e desenvolvimento em **Java**!
