@@ -1,0 +1,511 @@
+---
+title: "Iterator Pattern em Java: Navegação Sequencial através de Coleções"
+description: "Aprenda como implementar o Iterator Pattern em Java para percorrer elementos de uma coleção de forma sequencial sem expor sua representação interna. Descubra como este padrão comportamental pode simplificar o acesso a estruturas de dados complexas."
+date: Jul 10 2025
+---
+
+## Introdução
+
+O **Iterator Pattern** (Padrão Iterador) é um padrão de design comportamental que fornece uma maneira de acessar elementos de uma coleção sequencialmente sem expor sua representação subjacente. Este padrão é fundamental na programação orientada a objetos e está amplamente implementado nas APIs de Java, sendo a base para o loop "for-each" e as Collections do Java.
+
+Neste post, exploraremos o conceito do Iterator Pattern, suas vantagens e como implementá-lo em Java com exemplos práticos de coleções customizadas, demonstrando tanto implementações personalizadas quanto o uso das interfaces padrão do Java.
+
+---
+
+## O que é o Iterator Pattern?
+
+O Iterator Pattern resolve o problema de como percorrer elementos de uma coleção agregada (lista, árvore, etc.) de forma uniforme, independentemente da estrutura interna dos dados. Em vez de expor os detalhes internos da coleção, o padrão encapsula a lógica de iteração em um objeto separado.
+
+**Principais componentes:**
+
+1. **Iterator:** Interface que define métodos para percorrer elementos (`hasNext()`, `next()`, `remove()`).
+2. **ConcreteIterator:** Implementação específica do iterador para uma coleção particular.
+3. **Aggregate (Iterable):** Interface que define um método para criar um iterador.
+4. **ConcreteAggregate:** Implementação específica de uma coleção que pode criar iteradores.
+
+---
+
+## Quando usar o Iterator Pattern?
+
+- Quando você precisa acessar elementos de uma coleção sem expor sua representação interna.
+- Para fornecer uma interface uniforme para percorrer diferentes tipos de estruturas de dados.
+- Quando você quer suportar múltiplas formas de percorrer a mesma coleção.
+- Para implementar operações de percurso em estruturas de dados complexas.
+- Quando você precisa de lazy loading ou processamento sob demanda de elementos.
+
+---
+
+## Exemplo Prático em Java
+
+Vamos implementar uma biblioteca de música onde podemos iterar através de playlists de diferentes formas:
+
+---
+
+#### 1. Definindo a Classe Música
+
+Primeiro, vamos criar uma classe simples para representar uma música:
+
+```java
+public class Musica {
+    private String titulo;
+    private String artista;
+    private int duracao; // em segundos
+    
+    public Musica(String titulo, String artista, int duracao) {
+        this.titulo = titulo;
+        this.artista = artista;
+        this.duracao = duracao;
+    }
+    
+    public String getTitulo() {
+        return titulo;
+    }
+    
+    public String getArtista() {
+        return artista;
+    }
+    
+    public int getDuracao() {
+        return duracao;
+    }
+    
+    @Override
+    public String toString() {
+        return titulo + " - " + artista + " (" + formatarDuracao() + ")";
+    }
+    
+    private String formatarDuracao() {
+        int minutos = duracao / 60;
+        int segundos = duracao % 60;
+        return String.format("%d:%02d", minutos, segundos);
+    }
+}
+```
+
+#### 2. Implementando a Interface Iterator
+
+Vamos criar uma interface personalizada para nosso iterador:
+
+```java
+public interface MusicaIterator {
+    boolean hasNext();
+    Musica next();
+    void remove();
+}
+```
+
+#### 3. Criando Iteradores Concretos
+
+Implementaremos diferentes tipos de iteradores para diferentes formas de percorrer a playlist:
+
+```java
+import java.util.ArrayList;
+import java.util.List;
+import java.util.NoSuchElementException;
+
+// Iterador sequencial normal
+public class SequentialMusicIterator implements MusicaIterator {
+    private List<Musica> musicas;
+    private int posicao = 0;
+    
+    public SequentialMusicIterator(List<Musica> musicas) {
+        this.musicas = new ArrayList<>(musicas);
+    }
+    
+    @Override
+    public boolean hasNext() {
+        return posicao < musicas.size();
+    }
+    
+    @Override
+    public Musica next() {
+        if (!hasNext()) {
+            throw new NoSuchElementException("Não há mais músicas na playlist");
+        }
+        return musicas.get(posicao++);
+    }
+    
+    @Override
+    public void remove() {
+        if (posicao == 0) {
+            throw new IllegalStateException("next() deve ser chamado antes de remove()");
+        }
+        musicas.remove(--posicao);
+    }
+}
+
+// Iterador embaralhado
+public class ShuffledMusicIterator implements MusicaIterator {
+    private List<Musica> musicas;
+    private int posicao = 0;
+    
+    public ShuffledMusicIterator(List<Musica> musicas) {
+        this.musicas = new ArrayList<>(musicas);
+        embaralhar();
+    }
+    
+    private void embaralhar() {
+        for (int i = musicas.size() - 1; i > 0; i--) {
+            int j = (int) (Math.random() * (i + 1));
+            Musica temp = musicas.get(i);
+            musicas.set(i, musicas.get(j));
+            musicas.set(j, temp);
+        }
+    }
+    
+    @Override
+    public boolean hasNext() {
+        return posicao < musicas.size();
+    }
+    
+    @Override
+    public Musica next() {
+        if (!hasNext()) {
+            throw new NoSuchElementException("Não há mais músicas na playlist");
+        }
+        return musicas.get(posicao++);
+    }
+    
+    @Override
+    public void remove() {
+        if (posicao == 0) {
+            throw new IllegalStateException("next() deve ser chamado antes de remove()");
+        }
+        musicas.remove(--posicao);
+    }
+}
+
+// Iterador por gênero (filtra apenas músicas de um artista específico)
+public class ArtistFilterIterator implements MusicaIterator {
+    private List<Musica> musicas;
+    private String artistaFiltro;
+    private int posicao = 0;
+    
+    public ArtistFilterIterator(List<Musica> musicas, String artistaFiltro) {
+        this.musicas = musicas;
+        this.artistaFiltro = artistaFiltro;
+        moverParaProximaValida();
+    }
+    
+    @Override
+    public boolean hasNext() {
+        return posicao < musicas.size();
+    }
+    
+    @Override
+    public Musica next() {
+        if (!hasNext()) {
+            throw new NoSuchElementException("Não há mais músicas do artista: " + artistaFiltro);
+        }
+        
+        Musica musica = musicas.get(posicao++);
+        moverParaProximaValida();
+        return musica;
+    }
+    
+    @Override
+    public void remove() {
+        throw new UnsupportedOperationException("Remoção não suportada neste iterador");
+    }
+    
+    private void moverParaProximaValida() {
+        while (posicao < musicas.size() && 
+               !musicas.get(posicao).getArtista().equalsIgnoreCase(artistaFiltro)) {
+            posicao++;
+        }
+    }
+}
+```
+
+#### 4. Implementando a Coleção Agregada
+
+Agora vamos criar nossa playlist que pode fornecer diferentes tipos de iteradores:
+
+```java
+import java.util.ArrayList;
+import java.util.List;
+
+public class Playlist {
+    private String nome;
+    private List<Musica> musicas;
+    
+    public Playlist(String nome) {
+        this.nome = nome;
+        this.musicas = new ArrayList<>();
+    }
+    
+    public void adicionarMusica(Musica musica) {
+        musicas.add(musica);
+    }
+    
+    public void removerMusica(Musica musica) {
+        musicas.remove(musica);
+    }
+    
+    public String getNome() {
+        return nome;
+    }
+    
+    public int getTamanho() {
+        return musicas.size();
+    }
+    
+    // Método para obter iterador sequencial
+    public MusicaIterator createSequentialIterator() {
+        return new SequentialMusicIterator(musicas);
+    }
+    
+    // Método para obter iterador embaralhado
+    public MusicaIterator createShuffledIterator() {
+        return new ShuffledMusicIterator(musicas);
+    }
+    
+    // Método para obter iterador filtrado por artista
+    public MusicaIterator createArtistIterator(String artista) {
+        return new ArtistFilterIterator(musicas, artista);
+    }
+    
+    public int getDuracaoTotal() {
+        return musicas.stream().mapToInt(Musica::getDuracao).sum();
+    }
+}
+```
+
+#### 5. Implementando Compatibilidade com Java Collections
+
+Para integrar com o ecosistema Java, também podemos implementar as interfaces padrão:
+
+```java
+import java.util.Iterator;
+
+public class PlaylistIterable implements Iterable<Musica> {
+    private Playlist playlist;
+    
+    public PlaylistIterable(Playlist playlist) {
+        this.playlist = playlist;
+    }
+    
+    @Override
+    public Iterator<Musica> iterator() {
+        return new Iterator<Musica>() {
+            private MusicaIterator musicaIterator = playlist.createSequentialIterator();
+            
+            @Override
+            public boolean hasNext() {
+                return musicaIterator.hasNext();
+            }
+            
+            @Override
+            public Musica next() {
+                return musicaIterator.next();
+            }
+            
+            @Override
+            public void remove() {
+                musicaIterator.remove();
+            }
+        };
+    }
+}
+```
+
+#### 6. Exemplo de Uso
+
+Vamos demonstrar como usar nossa implementação do Iterator Pattern:
+
+```java
+public class MusicPlayerDemo {
+    public static void main(String[] args) {
+        // Criando uma playlist
+        Playlist minhaPlaylist = new Playlist("Minha Playlist Favorita");
+        
+        // Adicionando músicas
+        minhaPlaylist.adicionarMusica(new Musica("Bohemian Rhapsody", "Queen", 355));
+        minhaPlaylist.adicionarMusica(new Musica("Stairway to Heaven", "Led Zeppelin", 482));
+        minhaPlaylist.adicionarMusica(new Musica("Another One Bites the Dust", "Queen", 215));
+        minhaPlaylist.adicionarMusica(new Musica("Hotel California", "Eagles", 391));
+        minhaPlaylist.adicionarMusica(new Musica("We Will Rock You", "Queen", 122));
+        
+        System.out.println("=== REPRODUÇÃO SEQUENCIAL ===");
+        MusicaIterator sequentialIter = minhaPlaylist.createSequentialIterator();
+        while (sequentialIter.hasNext()) {
+            System.out.println("🎵 " + sequentialIter.next());
+        }
+        
+        System.out.println("\n=== REPRODUÇÃO EMBARALHADA ===");
+        MusicaIterator shuffledIter = minhaPlaylist.createShuffledIterator();
+        while (shuffledIter.hasNext()) {
+            System.out.println("🔀 " + shuffledIter.next());
+        }
+        
+        System.out.println("\n=== MÚSICAS DO QUEEN ===");
+        MusicaIterator queenIter = minhaPlaylist.createArtistIterator("Queen");
+        while (queenIter.hasNext()) {
+            System.out.println("👑 " + queenIter.next());
+        }
+        
+        // Usando com for-each (Java Collections)
+        System.out.println("\n=== USANDO FOR-EACH ===");
+        PlaylistIterable iterablePlaylist = new PlaylistIterable(minhaPlaylist);
+        for (Musica musica : iterablePlaylist) {
+            System.out.println("🎼 " + musica);
+        }
+        
+        // Demonstrando remoção
+        System.out.println("\n=== REMOVENDO MÚSICAS CURTAS ===");
+        MusicaIterator removeIter = minhaPlaylist.createSequentialIterator();
+        while (removeIter.hasNext()) {
+            Musica musica = removeIter.next();
+            if (musica.getDuracao() < 200) {
+                System.out.println("Removendo: " + musica);
+                removeIter.remove();
+            }
+        }
+        
+        System.out.println("Músicas restantes: " + minhaPlaylist.getTamanho());
+    }
+}
+```
+
+### Saída do Programa
+
+```
+=== REPRODUÇÃO SEQUENCIAL ===
+🎵 Bohemian Rhapsody - Queen (5:55)
+🎵 Stairway to Heaven - Led Zeppelin (8:02)
+🎵 Another One Bites the Dust - Queen (3:35)
+🎵 Hotel California - Eagles (6:31)
+🎵 We Will Rock You - Queen (2:02)
+
+=== REPRODUÇÃO EMBARALHADA ===
+🔀 Hotel California - Eagles (6:31)
+🔀 We Will Rock You - Queen (2:02)
+🔀 Bohemian Rhapsody - Queen (5:55)
+🔀 Another One Bites the Dust - Queen (3:35)
+🔀 Stairway to Heaven - Led Zeppelin (8:02)
+
+=== MÚSICAS DO QUEEN ===
+👑 Bohemian Rhapsody - Queen (5:55)
+👑 Another One Bites the Dust - Queen (3:35)
+👑 We Will Rock You - Queen (2:02)
+
+=== USANDO FOR-EACH ===
+🎼 Bohemian Rhapsody - Queen (5:55)
+🎼 Stairway to Heaven - Led Zeppelin (8:02)
+🎼 Another One Bites the Dust - Queen (3:35)
+🎼 Hotel California - Eagles (6:31)
+🎼 We Will Rock You - Queen (2:02)
+
+=== REMOVENDO MÚSICAS CURTAS ===
+Removendo: We Will Rock You - Queen (2:02)
+Músicas restantes: 4
+```
+
+### Explicação do Código
+
+1. **Separação de Responsabilidades:** A lógica de iteração é separada da estrutura de dados da playlist.
+
+2. **Múltiplos Algoritmos:** Podemos percorrer a mesma coleção de diferentes formas (sequencial, embaralhado, filtrado).
+
+3. **Encapsulamento:** Os detalhes internos da implementação da playlist permanecem ocultos.
+
+4. **Compatibilidade:** Nossa implementação funciona tanto com iteradores customizados quanto com o framework padrão do Java.
+
+---
+
+## Iterator Pattern nas Collections do Java
+
+O Java implementa extensivamente o Iterator Pattern em suas Collections:
+
+```java
+import java.util.*;
+
+public class JavaIteratorExample {
+    public static void main(String[] args) {
+        List<String> lista = Arrays.asList("Java", "Python", "JavaScript", "C++");
+        
+        // Iterator tradicional
+        Iterator<String> iter = lista.iterator();
+        while (iter.hasNext()) {
+            System.out.println(iter.next());
+        }
+        
+        // ListIterator (para listas)
+        ListIterator<String> listIter = ((ArrayList<String>) new ArrayList<>(lista)).listIterator();
+        
+        // Percorrer para frente
+        System.out.println("Para frente:");
+        while (listIter.hasNext()) {
+            System.out.println(listIter.next());
+        }
+        
+        // Percorrer para trás
+        System.out.println("Para trás:");
+        while (listIter.hasPrevious()) {
+            System.out.println(listIter.previous());
+        }
+        
+        // Enhanced for loop (usa Iterator internamente)
+        for (String linguagem : lista) {
+            System.out.println(linguagem);
+        }
+        
+        // Stream API (implementa conceitos do Iterator Pattern)
+        lista.stream()
+             .filter(lang -> lang.startsWith("J"))
+             .forEach(System.out::println);
+    }
+}
+```
+
+---
+
+## Vantagens e Desvantagens
+
+### Vantagens
+
+- **Acesso Uniforme:** Fornece uma interface consistente para percorrer diferentes tipos de coleções.
+- **Encapsulamento:** Mantém os detalhes internos da coleção ocultos do cliente.
+- **Múltiplos Iteradores:** Permite múltiplas formas de percorrer a mesma coleção.
+- **Lazy Loading:** Permite processamento sob demanda dos elementos.
+- **Separação de Responsabilidades:** A lógica de iteração é separada da estrutura de dados.
+
+### Desvantagens
+
+- **Overhead de Memória:** Cada iterador mantém seu próprio estado.
+- **Complexidade:** Pode adicionar complexidade desnecessária para coleções simples.
+- **Sincronização:** Em ambientes multi-thread, pode ser necessário sincronizar iteradores.
+- **Estado Mutável:** Modificações na coleção durante iteração podem causar problemas.
+
+---
+
+## Quando evitar o Iterator Pattern?
+
+- Para coleções muito simples onde acesso direto por índice é suficiente.
+- Quando o desempenho é crítico e o overhead do iterador é significativo.
+- Em estruturas de dados que mudam frequentemente durante a iteração.
+- Para operações que requerem acesso aleatório aos elementos.
+- Quando você não precisa de múltiplas formas de percorrer os dados.
+
+---
+
+## Padrões Relacionados
+
+- **Composite:** Iteradores são frequentemente usados para percorrer estruturas compostas.
+- **Factory Method:** Para criar diferentes tipos de iteradores.
+- **Visitor:** Ambos processam elementos de uma coleção, mas Visitor foca em operações específicas.
+- **Command:** Para encapsular operações de iteração como comandos executáveis.
+
+---
+
+## Conclusão
+
+O **Iterator Pattern** é um dos padrões mais fundamentais e amplamente utilizados na programação orientada a objetos, especialmente em Java. Ele fornece uma maneira elegante de percorrer elementos de uma coleção sem expor sua estrutura interna, promovendo encapsulamento e flexibilidade.
+
+Este padrão é essencial para qualquer desenvolvedor Java, pois está na base de quase todas as operações de coleção na linguagem. Desde o loop "for-each" até a Stream API, o Iterator Pattern está presente em todo o ecossistema Java, facilitando o desenvolvimento de código limpo, reutilizável e maintível.
+
+Compreender e dominar o Iterator Pattern não apenas melhora sua capacidade de trabalhar com as Collections do Java, mas também o capacita a criar suas próprias estruturas de dados iteráveis e flexíveis.
+
+---
+
+Gostou deste post? Continue acompanhando para mais conteúdos sobre padrões de design e desenvolvimento em **Java**!
