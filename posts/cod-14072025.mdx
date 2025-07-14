@@ -1,0 +1,1402 @@
+---
+title: "State Pattern em Java: Implementando State Machines para Games e Workflows"
+description: "Descubra como aplicar o State Pattern em Java para criar sistemas robustos de gerenciamento de estado em jogos e workflows empresariais. Aprenda técnicas avançadas de implementação e otimização para máquinas de estado complexas."
+date: Jul 14 2025
+---
+
+## Introdução
+
+O **State Pattern** é um dos padrões comportamentais mais poderosos para modelar sistemas que possuem comportamentos distintos baseados em estados internos. Enquanto muitos exemplos focam em casos simples, a verdadeira força deste padrão se revela em sistemas complexos como engines de jogos, workflows empresariais e sistemas de processamento de dados.
+
+Neste post, vamos explorar implementações avançadas do State Pattern em Java, focando em dois cenários complexos: um sistema de IA para NPCs em jogos e um workflow de aprovação empresarial. Veremos técnicas de otimização, gerenciamento de transições hierárquicas e padrões híbridos que combinam State com outros design patterns.
+
+---
+
+## State Pattern Avançado: Conceitos e Arquitetura
+
+Além dos conceitos básicos do State Pattern, sistemas complexos requerem funcionalidades adicionais:
+
+**Características avançadas:**
+
+1. **Estados Hierárquicos:** Estados que contêm sub-estados para modelar comportamentos aninhados.
+2. **Transições Condicionais:** Mudanças de estado baseadas em múltiplas condições complexas.
+3. **Estados Paralelos:** Múltiplas máquinas de estado operando simultaneamente.
+4. **Persistência de Estado:** Capacidade de salvar e restaurar estados do sistema.
+5. **História de Estados:** Tracking de transições para debugging e analytics.
+6. **Estados Temporizados:** Transições automáticas baseadas em tempo.
+
+---
+
+## Exemplo 1: Sistema de IA para NPCs em Jogos
+
+Vamos implementar um sistema completo de IA para NPCs (Non-Player Characters) que demonstra estados hierárquicos e transições complexas:
+
+### 1. Interface Base para Estados de NPC
+
+```java
+public interface NPCState {
+    void enter(NPC npc);
+    void update(NPC npc, float deltaTime);
+    void exit(NPC npc);
+    void handleEvent(NPC npc, GameEvent event);
+    String getStateName();
+    NPCStateType getStateType();
+    boolean canTransitionTo(NPCStateType targetState);
+}
+```
+
+### 2. Enumeração de Tipos de Estado
+
+```java
+public enum NPCStateType {
+    // Estados principais
+    IDLE("Idle", 1),
+    PATROL("Patrol", 1), 
+    CHASE("Chase", 2),
+    ATTACK("Attack", 3),
+    SEARCH("Search", 2),
+    FLEE("Flee", 2),
+    DEAD("Dead", 0),
+    
+    // Sub-estados de ataque
+    PREPARE_ATTACK("Prepare Attack", 3),
+    EXECUTING_ATTACK("Executing Attack", 3),
+    ATTACK_COOLDOWN("Attack Cooldown", 3),
+    
+    // Sub-estados de patrulha
+    MOVING_TO_WAYPOINT("Moving to Waypoint", 1),
+    WAITING_AT_WAYPOINT("Waiting at Waypoint", 1),
+    INVESTIGATING("Investigating", 1);
+    
+    private final String displayName;
+    private final int priority;
+    
+    NPCStateType(String displayName, int priority) {
+        this.displayName = displayName;
+        this.priority = priority;
+    }
+    
+    public String getDisplayName() { return displayName; }
+    public int getPriority() { return priority; }
+}
+```
+
+### 3. Classe NPC (Context)
+
+```java
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class NPC {
+    // Estados e transições
+    private NPCState currentState;
+    private final Map<NPCStateType, NPCState> states;
+    private final List<StateTransition> transitionHistory;
+    private final Map<String, Object> blackboard; // Dados compartilhados
+    
+    // Propriedades do NPC
+    private String name;
+    private Vector2D position;
+    private Vector2D targetPosition;
+    private float health;
+    private float maxHealth;
+    private float energy;
+    private float maxEnergy;
+    private float moveSpeed;
+    private float detectionRange;
+    private float attackRange;
+    private boolean isAlive;
+    
+    // Sistema de patrulha
+    private List<Vector2D> patrolWaypoints;
+    private int currentWaypointIndex;
+    
+    // Alvos e inimigos
+    private NPC currentTarget;
+    private final Set<NPC> knownEnemies;
+    private Vector2D lastKnownEnemyPosition;
+    
+    // Timers e cooldowns
+    private float stateTimer;
+    private float attackCooldown;
+    private float searchTimer;
+    private long lastStateChange;
+    
+    public NPC(String name, Vector2D startPosition) {
+        this.name = name;
+        this.position = new Vector2D(startPosition);
+        this.targetPosition = new Vector2D(startPosition);
+        this.maxHealth = 100.0f;
+        this.health = maxHealth;
+        this.maxEnergy = 100.0f;
+        this.energy = maxEnergy;
+        this.moveSpeed = 5.0f;
+        this.detectionRange = 10.0f;
+        this.attackRange = 2.0f;
+        this.isAlive = true;
+        
+        this.states = new ConcurrentHashMap<>();
+        this.transitionHistory = new ArrayList<>();
+        this.blackboard = new ConcurrentHashMap<>();
+        this.knownEnemies = new HashSet<>();
+        this.patrolWaypoints = new ArrayList<>();
+        this.currentWaypointIndex = 0;
+        
+        // Inicializa estados
+        initializeStates();
+        
+        // Estado inicial
+        setState(NPCStateType.IDLE);
+    }
+    
+    private void initializeStates() {
+        states.put(NPCStateType.IDLE, new IdleState());
+        states.put(NPCStateType.PATROL, new PatrolState());
+        states.put(NPCStateType.CHASE, new ChaseState());
+        states.put(NPCStateType.ATTACK, new AttackState());
+        states.put(NPCStateType.SEARCH, new SearchState());
+        states.put(NPCStateType.FLEE, new FleeState());
+        states.put(NPCStateType.DEAD, new DeadState());
+        
+        // Sub-estados de ataque
+        states.put(NPCStateType.PREPARE_ATTACK, new PrepareAttackState());
+        states.put(NPCStateType.EXECUTING_ATTACK, new ExecutingAttackState());
+        states.put(NPCStateType.ATTACK_COOLDOWN, new AttackCooldownState());
+        
+        // Sub-estados de patrulha
+        states.put(NPCStateType.MOVING_TO_WAYPOINT, new MovingToWaypointState());
+        states.put(NPCStateType.WAITING_AT_WAYPOINT, new WaitingAtWaypointState());
+        states.put(NPCStateType.INVESTIGATING, new InvestigatingState());
+    }
+    
+    public void update(float deltaTime) {
+        if (!isAlive) return;
+        
+        // Atualiza timers
+        stateTimer += deltaTime;
+        attackCooldown = Math.max(0, attackCooldown - deltaTime);
+        searchTimer = Math.max(0, searchTimer - deltaTime);
+        
+        // Regeneração de energia
+        energy = Math.min(maxEnergy, energy + (deltaTime * 10));
+        
+        // Atualiza estado atual
+        if (currentState != null) {
+            currentState.update(this, deltaTime);
+        }
+        
+        // Verifica condições de transição automática
+        checkAutomaticTransitions();
+        
+        // Atualiza posição (movimento básico)
+        updateMovement(deltaTime);
+    }
+    
+    private void checkAutomaticTransitions() {
+        // Verifica se morreu
+        if (health <= 0 && isAlive) {
+            isAlive = false;
+            setState(NPCStateType.DEAD);
+            return;
+        }
+        
+        // Lógica de detecção de inimigos
+        NPC nearestEnemy = detectNearbyEnemies();
+        if (nearestEnemy != null && currentState.getStateType() != NPCStateType.DEAD) {
+            currentTarget = nearestEnemy;
+            
+            float distanceToEnemy = position.distanceTo(nearestEnemy.getPosition());
+            
+            // Decide ação baseada na distância e estado atual
+            if (distanceToEnemy <= attackRange && energy > 20) {
+                if (currentState.canTransitionTo(NPCStateType.ATTACK)) {
+                    setState(NPCStateType.ATTACK);
+                }
+            } else if (distanceToEnemy <= detectionRange && energy > 10) {
+                if (currentState.canTransitionTo(NPCStateType.CHASE)) {
+                    setState(NPCStateType.CHASE);
+                }
+            }
+        }
+        
+        // Se perdeu o alvo, inicia busca
+        if (currentTarget != null && !isEnemyVisible(currentTarget)) {
+            if (currentState.canTransitionTo(NPCStateType.SEARCH)) {
+                lastKnownEnemyPosition = new Vector2D(currentTarget.getPosition());
+                currentTarget = null;
+                setState(NPCStateType.SEARCH);
+                searchTimer = 5.0f; // 5 segundos de busca
+            }
+        }
+        
+        // Volta para patrulha se não há ameaças
+        if (currentTarget == null && knownEnemies.isEmpty() && 
+            (currentState.getStateType() == NPCStateType.IDLE || 
+             currentState.getStateType() == NPCStateType.SEARCH) &&
+            !patrolWaypoints.isEmpty()) {
+            if (currentState.canTransitionTo(NPCStateType.PATROL)) {
+                setState(NPCStateType.PATROL);
+            }
+        }
+    }
+    
+    private void updateMovement(float deltaTime) {
+        if (!targetPosition.equals(position)) {
+            Vector2D direction = Vector2D.subtract(targetPosition, position);
+            float distance = direction.magnitude();
+            
+            if (distance > 0.1f) {
+                direction.normalize();
+                Vector2D movement = Vector2D.multiply(direction, moveSpeed * deltaTime);
+                position.add(movement);
+            } else {
+                position = new Vector2D(targetPosition);
+            }
+        }
+    }
+    
+    public void setState(NPCStateType newStateType) {
+        NPCState newState = states.get(newStateType);
+        if (newState == null) {
+            System.err.println("Estado não encontrado: " + newStateType);
+            return;
+        }
+        
+        // Registra transição
+        StateTransition transition = new StateTransition(
+            currentState != null ? currentState.getStateType() : null,
+            newStateType,
+            System.currentTimeMillis(),
+            position
+        );
+        transitionHistory.add(transition);
+        
+        // Executa saída do estado atual
+        if (currentState != null) {
+            currentState.exit(this);
+        }
+        
+        // Muda para novo estado
+        NPCState previousState = currentState;
+        currentState = newState;
+        stateTimer = 0;
+        lastStateChange = System.currentTimeMillis();
+        
+        // Executa entrada do novo estado
+        currentState.enter(this);
+        
+        // Log da transição
+        System.out.println(String.format("[%s] %s -> %s", 
+            name, 
+            previousState != null ? previousState.getStateName() : "None",
+            currentState.getStateName()));
+    }
+    
+    public void handleEvent(GameEvent event) {
+        if (currentState != null) {
+            currentState.handleEvent(this, event);
+        }
+    }
+    
+    // Métodos de detecção e IA
+    private NPC detectNearbyEnemies() {
+        // Simula detecção de inimigos próximos
+        // Na implementação real, consultaria o sistema de game world
+        return null; // Placeholder
+    }
+    
+    private boolean isEnemyVisible(NPC enemy) {
+        if (enemy == null) return false;
+        float distance = position.distanceTo(enemy.getPosition());
+        return distance <= detectionRange && enemy.isAlive();
+    }
+    
+    public void takeDamage(float damage) {
+        health = Math.max(0, health - damage);
+        
+        // Evento de dano recebido
+        handleEvent(new GameEvent(GameEventType.DAMAGE_RECEIVED, damage));
+        
+        // Foge se vida baixa
+        if (health < maxHealth * 0.3f && currentState.canTransitionTo(NPCStateType.FLEE)) {
+            setState(NPCStateType.FLEE);
+        }
+    }
+    
+    public void addPatrolWaypoint(Vector2D waypoint) {
+        patrolWaypoints.add(new Vector2D(waypoint));
+    }
+    
+    public Vector2D getNextWaypoint() {
+        if (patrolWaypoints.isEmpty()) return position;
+        
+        currentWaypointIndex = (currentWaypointIndex + 1) % patrolWaypoints.size();
+        return patrolWaypoints.get(currentWaypointIndex);
+    }
+    
+    // Getters e Setters
+    public String getName() { return name; }
+    public Vector2D getPosition() { return new Vector2D(position); }
+    public Vector2D getTargetPosition() { return new Vector2D(targetPosition); }
+    public void setTargetPosition(Vector2D target) { this.targetPosition = new Vector2D(target); }
+    public float getHealth() { return health; }
+    public float getMaxHealth() { return maxHealth; }
+    public float getEnergy() { return energy; }
+    public float getMaxEnergy() { return maxEnergy; }
+    public boolean isAlive() { return isAlive; }
+    public NPCState getCurrentState() { return currentState; }
+    public float getStateTimer() { return stateTimer; }
+    public NPC getCurrentTarget() { return currentTarget; }
+    public void setCurrentTarget(NPC target) { this.currentTarget = target; }
+    public float getAttackCooldown() { return attackCooldown; }
+    public void setAttackCooldown(float cooldown) { this.attackCooldown = cooldown; }
+    public Vector2D getLastKnownEnemyPosition() { return lastKnownEnemyPosition; }
+    public float getSearchTimer() { return searchTimer; }
+    public void setSearchTimer(float timer) { this.searchTimer = timer; }
+    public Map<String, Object> getBlackboard() { return blackboard; }
+    public List<StateTransition> getTransitionHistory() { return new ArrayList<>(transitionHistory); }
+    
+    // Método para status completo
+    public void printStatus() {
+        System.out.println("\n=== STATUS NPC: " + name + " ===");
+        System.out.println("Estado: " + (currentState != null ? currentState.getStateName() : "None"));
+        System.out.println("Posição: " + position);
+        System.out.println("Vida: " + String.format("%.1f/%.1f", health, maxHealth));
+        System.out.println("Energia: " + String.format("%.1f/%.1f", energy, maxEnergy));
+        System.out.println("Alvo: " + (currentTarget != null ? currentTarget.getName() : "Nenhum"));
+        System.out.println("Tempo no estado: " + String.format("%.2f s", stateTimer));
+        System.out.println("Vivo: " + isAlive);
+        System.out.println("==========================\n");
+    }
+}
+```
+
+### 4. Implementações dos Estados Principais
+
+**Estado Idle:**
+
+```java
+public class IdleState implements NPCState {
+    @Override
+    public void enter(NPC npc) {
+        npc.setTargetPosition(npc.getPosition());
+        npc.getBlackboard().put("idleStartTime", System.currentTimeMillis());
+    }
+    
+    @Override
+    public void update(NPC npc, float deltaTime) {
+        // Ocasionalmente muda de posição para parecer mais natural
+        if (npc.getStateTimer() > 5.0f && Math.random() < 0.1f) {
+            Vector2D currentPos = npc.getPosition();
+            Vector2D randomOffset = new Vector2D(
+                (float)(Math.random() - 0.5) * 4, 
+                (float)(Math.random() - 0.5) * 4
+            );
+            npc.setTargetPosition(Vector2D.add(currentPos, randomOffset));
+        }
+    }
+    
+    @Override
+    public void exit(NPC npc) {
+        npc.getBlackboard().remove("idleStartTime");
+    }
+    
+    @Override
+    public void handleEvent(NPC npc, GameEvent event) {
+        switch (event.getType()) {
+            case ENEMY_SPOTTED:
+                if (canTransitionTo(NPCStateType.CHASE)) {
+                    npc.setState(NPCStateType.CHASE);
+                }
+                break;
+            case NOISE_HEARD:
+                if (canTransitionTo(NPCStateType.INVESTIGATING)) {
+                    npc.setState(NPCStateType.INVESTIGATING);
+                }
+                break;
+        }
+    }
+    
+    @Override
+    public String getStateName() {
+        return "Idle";
+    }
+    
+    @Override
+    public NPCStateType getStateType() {
+        return NPCStateType.IDLE;
+    }
+    
+    @Override
+    public boolean canTransitionTo(NPCStateType targetState) {
+        return targetState != NPCStateType.DEAD || 
+               targetState == NPCStateType.PATROL ||
+               targetState == NPCStateType.CHASE ||
+               targetState == NPCStateType.INVESTIGATING;
+    }
+}
+```
+
+**Estado Patrol:**
+
+```java
+public class PatrolState implements NPCState {
+    @Override
+    public void enter(NPC npc) {
+        Vector2D nextWaypoint = npc.getNextWaypoint();
+        npc.setTargetPosition(nextWaypoint);
+        npc.getBlackboard().put("patrolStartTime", System.currentTimeMillis());
+        System.out.println(npc.getName() + " iniciando patrulha para: " + nextWaypoint);
+    }
+    
+    @Override
+    public void update(NPC npc, float deltaTime) {
+        Vector2D currentPos = npc.getPosition();
+        Vector2D targetPos = npc.getTargetPosition();
+        
+        // Chegou ao waypoint
+        if (currentPos.distanceTo(targetPos) < 0.5f) {
+            // Para no waypoint por um tempo
+            if (npc.getStateTimer() > 2.0f) {
+                Vector2D nextWaypoint = npc.getNextWaypoint();
+                npc.setTargetPosition(nextWaypoint);
+                System.out.println(npc.getName() + " indo para próximo waypoint: " + nextWaypoint);
+            }
+        }
+    }
+    
+    @Override
+    public void exit(NPC npc) {
+        npc.getBlackboard().remove("patrolStartTime");
+        System.out.println(npc.getName() + " saindo do modo patrulha");
+    }
+    
+    @Override
+    public void handleEvent(NPC npc, GameEvent event) {
+        switch (event.getType()) {
+            case ENEMY_SPOTTED:
+                npc.setState(NPCStateType.CHASE);
+                break;
+            case NOISE_HEARD:
+                npc.setState(NPCStateType.INVESTIGATING);
+                break;
+        }
+    }
+    
+    @Override
+    public String getStateName() {
+        return "Patrol";
+    }
+    
+    @Override
+    public NPCStateType getStateType() {
+        return NPCStateType.PATROL;
+    }
+    
+    @Override
+    public boolean canTransitionTo(NPCStateType targetState) {
+        return targetState == NPCStateType.IDLE ||
+               targetState == NPCStateType.CHASE ||
+               targetState == NPCStateType.INVESTIGATING ||
+               targetState == NPCStateType.DEAD;
+    }
+}
+```
+
+**Estado Chase:**
+
+```java
+public class ChaseState implements NPCState {
+    private static final float CHASE_SPEED_MULTIPLIER = 1.5f;
+    private static final float MAX_CHASE_TIME = 10.0f;
+    
+    @Override
+    public void enter(NPC npc) {
+        System.out.println(npc.getName() + " iniciando perseguição!");
+        npc.getBlackboard().put("originalSpeed", npc.getMoveSpeed());
+        npc.getBlackboard().put("chaseStartTime", System.currentTimeMillis());
+        
+        // Aumenta velocidade durante perseguição
+        float originalSpeed = (Float) npc.getBlackboard().get("originalSpeed");
+        npc.setMoveSpeed(originalSpeed * CHASE_SPEED_MULTIPLIER);
+    }
+    
+    @Override
+    public void update(NPC npc, float deltaTime) {
+        NPC target = npc.getCurrentTarget();
+        
+        if (target != null && target.isAlive()) {
+            // Atualiza posição alvo
+            npc.setTargetPosition(target.getPosition());
+            
+            float distanceToTarget = npc.getPosition().distanceTo(target.getPosition());
+            
+            // Se chegou perto o suficiente, ataca
+            if (distanceToTarget <= npc.getAttackRange()) {
+                npc.setState(NPCStateType.ATTACK);
+                return;
+            }
+            
+            // Perde energia durante perseguição
+            float currentEnergy = npc.getEnergy();
+            npc.setEnergy(currentEnergy - (deltaTime * 20)); // Gasta energia rapidamente
+            
+            // Para se ficar sem energia
+            if (npc.getEnergy() <= 10) {
+                npc.setState(NPCStateType.IDLE);
+                return;
+            }
+        }
+        
+        // Timeout da perseguição
+        if (npc.getStateTimer() > MAX_CHASE_TIME) {
+            System.out.println(npc.getName() + " perdeu o alvo durante perseguição");
+            npc.setState(NPCStateType.SEARCH);
+        }
+    }
+    
+    @Override
+    public void exit(NPC npc) {
+        // Restaura velocidade original
+        Float originalSpeed = (Float) npc.getBlackboard().get("originalSpeed");
+        if (originalSpeed != null) {
+            npc.setMoveSpeed(originalSpeed);
+        }
+        
+        npc.getBlackboard().remove("originalSpeed");
+        npc.getBlackboard().remove("chaseStartTime");
+        
+        System.out.println(npc.getName() + " terminando perseguição");
+    }
+    
+    @Override
+    public void handleEvent(NPC npc, GameEvent event) {
+        switch (event.getType()) {
+            case TARGET_LOST:
+                npc.setState(NPCStateType.SEARCH);
+                break;
+            case DAMAGE_RECEIVED:
+                // Se recebeu muito dano, considera fugir
+                if (npc.getHealth() < npc.getMaxHealth() * 0.3f) {
+                    npc.setState(NPCStateType.FLEE);
+                }
+                break;
+        }
+    }
+    
+    @Override
+    public String getStateName() {
+        return "Chase";
+    }
+    
+    @Override
+    public NPCStateType getStateType() {
+        return NPCStateType.CHASE;
+    }
+    
+    @Override
+    public boolean canTransitionTo(NPCStateType targetState) {
+        return targetState == NPCStateType.ATTACK ||
+               targetState == NPCStateType.SEARCH ||
+               targetState == NPCStateType.IDLE ||
+               targetState == NPCStateType.FLEE ||
+               targetState == NPCStateType.DEAD;
+    }
+}
+```
+
+### 5. Classes Auxiliares
+
+**Vector2D (para posições):**
+
+```java
+public class Vector2D {
+    public float x, y;
+    
+    public Vector2D(float x, float y) {
+        this.x = x;
+        this.y = y;
+    }
+    
+    public Vector2D(Vector2D other) {
+        this.x = other.x;
+        this.y = other.y;
+    }
+    
+    public float distanceTo(Vector2D other) {
+        float dx = x - other.x;
+        float dy = y - other.y;
+        return (float) Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    public float magnitude() {
+        return (float) Math.sqrt(x * x + y * y);
+    }
+    
+    public void normalize() {
+        float mag = magnitude();
+        if (mag > 0) {
+            x /= mag;
+            y /= mag;
+        }
+    }
+    
+    public void add(Vector2D other) {
+        x += other.x;
+        y += other.y;
+    }
+    
+    public static Vector2D add(Vector2D a, Vector2D b) {
+        return new Vector2D(a.x + b.x, a.y + b.y);
+    }
+    
+    public static Vector2D subtract(Vector2D a, Vector2D b) {
+        return new Vector2D(a.x - b.x, a.y - b.y);
+    }
+    
+    public static Vector2D multiply(Vector2D v, float scalar) {
+        return new Vector2D(v.x * scalar, v.y * scalar);
+    }
+    
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        Vector2D vector2D = (Vector2D) obj;
+        return Float.compare(vector2D.x, x) == 0 && Float.compare(vector2D.y, y) == 0;
+    }
+    
+    @Override
+    public String toString() {
+        return String.format("(%.2f, %.2f)", x, y);
+    }
+}
+```
+
+**GameEvent:**
+
+```java
+public class GameEvent {
+    private final GameEventType type;
+    private final Object data;
+    private final long timestamp;
+    
+    public GameEvent(GameEventType type, Object data) {
+        this.type = type;
+        this.data = data;
+        this.timestamp = System.currentTimeMillis();
+    }
+    
+    public GameEventType getType() { return type; }
+    public Object getData() { return data; }
+    public long getTimestamp() { return timestamp; }
+}
+
+public enum GameEventType {
+    ENEMY_SPOTTED,
+    TARGET_LOST,
+    DAMAGE_RECEIVED,
+    NOISE_HEARD,
+    WAYPOINT_REACHED,
+    ATTACK_COMPLETED,
+    ENERGY_LOW,
+    HEALTH_LOW
+}
+```
+
+**StateTransition (para histórico):**
+
+```java
+public class StateTransition {
+    private final NPCStateType fromState;
+    private final NPCStateType toState;
+    private final long timestamp;
+    private final Vector2D position;
+    
+    public StateTransition(NPCStateType fromState, NPCStateType toState, 
+                          long timestamp, Vector2D position) {
+        this.fromState = fromState;
+        this.toState = toState;
+        this.timestamp = timestamp;
+        this.position = new Vector2D(position);
+    }
+    
+    // Getters
+    public NPCStateType getFromState() { return fromState; }
+    public NPCStateType getToState() { return toState; }
+    public long getTimestamp() { return timestamp; }
+    public Vector2D getPosition() { return position; }
+    
+    @Override
+    public String toString() {
+        return String.format("[%d] %s -> %s at %s", 
+            timestamp, fromState, toState, position);
+    }
+}
+```
+
+---
+
+## Exemplo 2: Workflow de Aprovação Empresarial
+
+Agora vamos implementar um sistema de workflow empresarial com estados hierárquicos e condições complexas:
+
+### 1. Interface do Workflow State
+
+```java
+public interface WorkflowState {
+    void enter(WorkflowContext context);
+    void execute(WorkflowContext context);
+    void exit(WorkflowContext context);
+    boolean canTransitionTo(WorkflowStateType targetState, WorkflowContext context);
+    WorkflowStateType getStateType();
+    String getStateName();
+    Set<String> getRequiredRoles();
+    boolean isTerminalState();
+    Duration getMaxExecutionTime();
+}
+```
+
+### 2. Enumeração de Estados do Workflow
+
+```java
+public enum WorkflowStateType {
+    // Estados principais
+    DRAFT("Draft", false),
+    SUBMITTED("Submitted", false),
+    UNDER_REVIEW("Under Review", false),
+    APPROVED("Approved", true),
+    REJECTED("Rejected", true),
+    CANCELLED("Cancelled", true),
+    
+    // Sub-estados de revisão
+    TECHNICAL_REVIEW("Technical Review", false),
+    MANAGER_REVIEW("Manager Review", false),
+    EXECUTIVE_REVIEW("Executive Review", false),
+    COMPLIANCE_REVIEW("Compliance Review", false),
+    
+    // Estados de correção
+    PENDING_CORRECTION("Pending Correction", false),
+    UNDER_CORRECTION("Under Correction", false),
+    
+    // Estados especiais
+    ON_HOLD("On Hold", false),
+    ESCALATED("Escalated", false);
+    
+    private final String displayName;
+    private final boolean terminal;
+    
+    WorkflowStateType(String displayName, boolean terminal) {
+        this.displayName = displayName;
+        this.terminal = terminal;
+    }
+    
+    public String getDisplayName() { return displayName; }
+    public boolean isTerminal() { return terminal; }
+}
+```
+
+### 3. Context do Workflow
+
+```java
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class WorkflowContext {
+    // Identificação
+    private final String workflowId;
+    private final String requestType;
+    private final String submitter;
+    
+    // Estado atual
+    private WorkflowState currentState;
+    private final Map<WorkflowStateType, WorkflowState> states;
+    private final List<WorkflowTransition> transitionHistory;
+    
+    // Dados do pedido
+    private final Map<String, Object> requestData;
+    private final Map<String, Object> metadata;
+    private final List<WorkflowComment> comments;
+    private final List<String> attachments;
+    
+    // Informações de processo
+    private LocalDateTime createdAt;
+    private LocalDateTime lastModified;
+    private LocalDateTime currentStateStartTime;
+    private String currentAssignee;
+    private Priority priority;
+    private Duration slaDeadline;
+    
+    // Controle de aprovação
+    private final Set<String> requiredApprovers;
+    private final Set<String> approvedBy;
+    private final Map<String, String> rejectionReasons;
+    private int escalationLevel;
+    
+    public WorkflowContext(String workflowId, String requestType, String submitter) {
+        this.workflowId = workflowId;
+        this.requestType = requestType;
+        this.submitter = submitter;
+        this.createdAt = LocalDateTime.now();
+        this.lastModified = LocalDateTime.now();
+        this.priority = Priority.MEDIUM;
+        
+        this.states = new ConcurrentHashMap<>();
+        this.transitionHistory = new ArrayList<>();
+        this.requestData = new ConcurrentHashMap<>();
+        this.metadata = new ConcurrentHashMap<>();
+        this.comments = new ArrayList<>();
+        this.attachments = new ArrayList<>();
+        this.requiredApprovers = new HashSet<>();
+        this.approvedBy = new HashSet<>();
+        this.rejectionReasons = new ConcurrentHashMap<>();
+        this.escalationLevel = 0;
+        
+        initializeStates();
+        setState(WorkflowStateType.DRAFT);
+    }
+    
+    private void initializeStates() {
+        states.put(WorkflowStateType.DRAFT, new DraftState());
+        states.put(WorkflowStateType.SUBMITTED, new SubmittedState());
+        states.put(WorkflowStateType.UNDER_REVIEW, new UnderReviewState());
+        states.put(WorkflowStateType.TECHNICAL_REVIEW, new TechnicalReviewState());
+        states.put(WorkflowStateType.MANAGER_REVIEW, new ManagerReviewState());
+        states.put(WorkflowStateType.EXECUTIVE_REVIEW, new ExecutiveReviewState());
+        states.put(WorkflowStateType.COMPLIANCE_REVIEW, new ComplianceReviewState());
+        states.put(WorkflowStateType.APPROVED, new ApprovedState());
+        states.put(WorkflowStateType.REJECTED, new RejectedState());
+        states.put(WorkflowStateType.CANCELLED, new CancelledState());
+        states.put(WorkflowStateType.PENDING_CORRECTION, new PendingCorrectionState());
+        states.put(WorkflowStateType.UNDER_CORRECTION, new UnderCorrectionState());
+        states.put(WorkflowStateType.ON_HOLD, new OnHoldState());
+        states.put(WorkflowStateType.ESCALATED, new EscalatedState());
+    }
+    
+    public void execute() {
+        if (currentState != null) {
+            currentState.execute(this);
+        }
+        
+        checkSlaCompliance();
+        checkAutoEscalation();
+    }
+    
+    public boolean setState(WorkflowStateType newStateType) {
+        WorkflowState newState = states.get(newStateType);
+        if (newState == null) {
+            System.err.println("Estado não encontrado: " + newStateType);
+            return false;
+        }
+        
+        // Verifica se a transição é permitida
+        if (currentState != null && !currentState.canTransitionTo(newStateType, this)) {
+            System.err.println("Transição não permitida: " + 
+                currentState.getStateType() + " -> " + newStateType);
+            return false;
+        }
+        
+        // Registra transição
+        WorkflowTransition transition = new WorkflowTransition(
+            currentState != null ? currentState.getStateType() : null,
+            newStateType,
+            LocalDateTime.now(),
+            currentAssignee
+        );
+        transitionHistory.add(transition);
+        
+        // Executa saída do estado atual
+        if (currentState != null) {
+            currentState.exit(this);
+        }
+        
+        // Muda para novo estado
+        WorkflowState previousState = currentState;
+        currentState = newState;
+        currentStateStartTime = LocalDateTime.now();
+        lastModified = LocalDateTime.now();
+        
+        // Executa entrada do novo estado
+        currentState.enter(this);
+        
+        // Log da transição
+        System.out.println(String.format("[%s] %s -> %s (Assignee: %s)", 
+            workflowId,
+            previousState != null ? previousState.getStateName() : "None",
+            currentState.getStateName(),
+            currentAssignee != null ? currentAssignee : "None"));
+        
+        return true;
+    }
+    
+    public boolean canPerformAction(String userId, String action) {
+        if (currentState == null) return false;
+        
+        Set<String> requiredRoles = currentState.getRequiredRoles();
+        
+        // Verifica se usuário tem as roles necessárias
+        // Na implementação real, consultaria sistema de autorização
+        return hasRequiredRole(userId, requiredRoles) || 
+               userId.equals(submitter) || 
+               userId.equals(currentAssignee);
+    }
+    
+    private boolean hasRequiredRole(String userId, Set<String> requiredRoles) {
+        // Simulação - na implementação real consultaria AD/LDAP
+        // Aqui vamos simular alguns usuários com roles
+        Map<String, Set<String>> userRoles = Map.of(
+            "john.doe", Set.of("EMPLOYEE", "SUBMITTER"),
+            "jane.manager", Set.of("EMPLOYEE", "MANAGER", "APPROVER"),
+            "bob.tech", Set.of("EMPLOYEE", "TECHNICAL_REVIEWER"),
+            "alice.exec", Set.of("EMPLOYEE", "MANAGER", "EXECUTIVE", "APPROVER"),
+            "compliance.user", Set.of("EMPLOYEE", "COMPLIANCE_OFFICER")
+        );
+        
+        Set<String> roles = userRoles.getOrDefault(userId, Set.of());
+        return requiredRoles.stream().anyMatch(roles::contains);
+    }
+    
+    public void addComment(String userId, String comment) {
+        WorkflowComment wfComment = new WorkflowComment(
+            userId, comment, LocalDateTime.now(), currentState.getStateType()
+        );
+        comments.add(wfComment);
+        lastModified = LocalDateTime.now();
+        
+        System.out.println(String.format("[%s] Comentário adicionado por %s: %s", 
+            workflowId, userId, comment));
+    }
+    
+    public void approve(String userId) {
+        if (canPerformAction(userId, "APPROVE")) {
+            approvedBy.add(userId);
+            addComment(userId, "Pedido aprovado");
+            
+            // Verifica se tem todas as aprovações necessárias
+            if (hasAllRequiredApprovals()) {
+                setState(WorkflowStateType.APPROVED);
+            } else {
+                // Move para próximo nível de aprovação
+                advanceToNextApprovalLevel();
+            }
+        }
+    }
+    
+    public void reject(String userId, String reason) {
+        if (canPerformAction(userId, "REJECT")) {
+            rejectionReasons.put(userId, reason);
+            addComment(userId, "Pedido rejeitado: " + reason);
+            setState(WorkflowStateType.REJECTED);
+        }
+    }
+    
+    public void requestCorrection(String userId, String corrections) {
+        if (canPerformAction(userId, "REQUEST_CORRECTION")) {
+            addComment(userId, "Correções solicitadas: " + corrections);
+            metadata.put("requestedCorrections", corrections);
+            setState(WorkflowStateType.PENDING_CORRECTION);
+        }
+    }
+    
+    public void escalate(String reason) {
+        escalationLevel++;
+        addComment("SYSTEM", "Pedido escalado (Nível " + escalationLevel + "): " + reason);
+        setState(WorkflowStateType.ESCALATED);
+    }
+    
+    private void checkSlaCompliance() {
+        if (slaDeadline != null && currentStateStartTime != null) {
+            LocalDateTime deadline = currentStateStartTime.plus(slaDeadline);
+            if (LocalDateTime.now().isAfter(deadline)) {
+                escalate("SLA deadline exceeded");
+            }
+        }
+    }
+    
+    private void checkAutoEscalation() {
+        Duration timeInCurrentState = Duration.between(currentStateStartTime, LocalDateTime.now());
+        Duration maxTime = currentState.getMaxExecutionTime();
+        
+        if (maxTime != null && timeInCurrentState.compareTo(maxTime) > 0) {
+            escalate("Maximum time in state exceeded");
+        }
+    }
+    
+    private boolean hasAllRequiredApprovals() {
+        return approvedBy.containsAll(requiredApprovers);
+    }
+    
+    private void advanceToNextApprovalLevel() {
+        // Lógica para determinar próximo nível baseado no tipo de pedido
+        String requestValue = (String) requestData.get("value");
+        double value = requestValue != null ? Double.parseDouble(requestValue) : 0;
+        
+        if (value > 100000 && !approvedBy.contains("executive")) {
+            setState(WorkflowStateType.EXECUTIVE_REVIEW);
+        } else if (requestData.containsKey("requiresCompliance")) {
+            setState(WorkflowStateType.COMPLIANCE_REVIEW);
+        } else {
+            setState(WorkflowStateType.APPROVED);
+        }
+    }
+    
+    // Getters e Setters
+    public String getWorkflowId() { return workflowId; }
+    public String getRequestType() { return requestType; }
+    public String getSubmitter() { return submitter; }
+    public WorkflowState getCurrentState() { return currentState; }
+    public Map<String, Object> getRequestData() { return requestData; }
+    public Map<String, Object> getMetadata() { return metadata; }
+    public List<WorkflowComment> getComments() { return new ArrayList<>(comments); }
+    public List<WorkflowTransition> getTransitionHistory() { return new ArrayList<>(transitionHistory); }
+    public String getCurrentAssignee() { return currentAssignee; }
+    public void setCurrentAssignee(String assignee) { this.currentAssignee = assignee; }
+    public Priority getPriority() { return priority; }
+    public void setPriority(Priority priority) { this.priority = priority; }
+    public Set<String> getRequiredApprovers() { return new HashSet<>(requiredApprovers); }
+    public Set<String> getApprovedBy() { return new HashSet<>(approvedBy); }
+    public int getEscalationLevel() { return escalationLevel; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getLastModified() { return lastModified; }
+    public LocalDateTime getCurrentStateStartTime() { return currentStateStartTime; }
+    
+    // Status completo
+    public void printWorkflowStatus() {
+        System.out.println("\n=== WORKFLOW STATUS ===");
+        System.out.println("ID: " + workflowId);
+        System.out.println("Tipo: " + requestType);
+        System.out.println("Submitter: " + submitter);
+        System.out.println("Estado atual: " + (currentState != null ? currentState.getStateName() : "None"));
+        System.out.println("Assignee: " + (currentAssignee != null ? currentAssignee : "None"));
+        System.out.println("Prioridade: " + priority);
+        System.out.println("Nível de escalação: " + escalationLevel);
+        System.out.println("Criado em: " + createdAt);
+        System.out.println("Última modificação: " + lastModified);
+        System.out.println("Aprovadores necessários: " + requiredApprovers);
+        System.out.println("Aprovado por: " + approvedBy);
+        System.out.println("Comentários: " + comments.size());
+        System.out.println("======================\n");
+    }
+}
+
+// Enums auxiliares
+enum Priority { LOW, MEDIUM, HIGH, CRITICAL }
+```
+
+### 4. Classes de Estados do Workflow
+
+**Estado Draft:**
+
+```java
+import java.time.Duration;
+import java.util.Set;
+
+public class DraftState implements WorkflowState {
+    @Override
+    public void enter(WorkflowContext context) {
+        context.setCurrentAssignee(context.getSubmitter());
+        context.getMetadata().put("draftStartTime", LocalDateTime.now());
+        System.out.println("Pedido em modo rascunho - pode ser editado");
+    }
+    
+    @Override
+    public void execute(WorkflowContext context) {
+        // Em draft, não há processamento automático
+        // Apenas aguarda ação do usuário
+    }
+    
+    @Override
+    public void exit(WorkflowContext context) {
+        context.getMetadata().remove("draftStartTime");
+    }
+    
+    @Override
+    public boolean canTransitionTo(WorkflowStateType targetState, WorkflowContext context) {
+        return targetState == WorkflowStateType.SUBMITTED ||
+               targetState == WorkflowStateType.CANCELLED;
+    }
+    
+    @Override
+    public WorkflowStateType getStateType() {
+        return WorkflowStateType.DRAFT;
+    }
+    
+    @Override
+    public String getStateName() {
+        return "Draft";
+    }
+    
+    @Override
+    public Set<String> getRequiredRoles() {
+        return Set.of("SUBMITTER");
+    }
+    
+    @Override
+    public boolean isTerminalState() {
+        return false;
+    }
+    
+    @Override
+    public Duration getMaxExecutionTime() {
+        return Duration.ofDays(30); // 30 dias para finalizar rascunho
+    }
+}
+```
+
+**Estado Submitted:**
+
+```java
+public class SubmittedState implements WorkflowState {
+    @Override
+    public void enter(WorkflowContext context) {
+        System.out.println("Pedido submetido - iniciando processo de aprovação");
+        
+        // Determina aprovadores necessários baseado no tipo e valor
+        determineRequiredApprovers(context);
+        
+        // Auto-transição para primeiro nível de review
+        autoTransitionToReview(context);
+    }
+    
+    @Override
+    public void execute(WorkflowContext context) {
+        // Estado transitório - executa transição automática
+    }
+    
+    @Override
+    public void exit(WorkflowContext context) {
+        System.out.println("Saindo do estado submitted");
+    }
+    
+    private void determineRequiredApprovers(WorkflowContext context) {
+        String requestType = context.getRequestType();
+        Object valueObj = context.getRequestData().get("value");
+        double value = valueObj != null ? Double.parseDouble(valueObj.toString()) : 0;
+        
+        Set<String> approvers = context.getRequiredApprovers();
+        
+        // Lógica baseada no tipo de pedido
+        switch (requestType) {
+            case "PURCHASE_REQUEST":
+                if (value > 1000) {
+                    approvers.add("jane.manager");
+                }
+                if (value > 10000) {
+                    approvers.add("alice.exec");
+                }
+                break;
+                
+            case "SOFTWARE_REQUEST":
+                approvers.add("bob.tech");
+                if (context.getRequestData().containsKey("requiresCompliance")) {
+                    approvers.add("compliance.user");
+                }
+                break;
+                
+            case "ACCESS_REQUEST":
+                approvers.add("jane.manager");
+                break;
+        }
+        
+        System.out.println("Aprovadores necessários: " + approvers);
+    }
+    
+    private void autoTransitionToReview(WorkflowContext context) {
+        // Determina primeiro tipo de revisão necessária
+        String requestType = context.getRequestType();
+        
+        switch (requestType) {
+            case "SOFTWARE_REQUEST":
+                context.setState(WorkflowStateType.TECHNICAL_REVIEW);
+                break;
+            case "PURCHASE_REQUEST":
+                context.setState(WorkflowStateType.MANAGER_REVIEW);
+                break;
+            default:
+                context.setState(WorkflowStateType.UNDER_REVIEW);
+                break;
+        }
+    }
+    
+    @Override
+    public boolean canTransitionTo(WorkflowStateType targetState, WorkflowContext context) {
+        return targetState == WorkflowStateType.UNDER_REVIEW ||
+               targetState == WorkflowStateType.TECHNICAL_REVIEW ||
+               targetState == WorkflowStateType.MANAGER_REVIEW ||
+               targetState == WorkflowStateType.CANCELLED;
+    }
+    
+    @Override
+    public WorkflowStateType getStateType() {
+        return WorkflowStateType.SUBMITTED;
+    }
+    
+    @Override
+    public String getStateName() {
+        return "Submitted";
+    }
+    
+    @Override
+    public Set<String> getRequiredRoles() {
+        return Set.of(); // Estado transitório
+    }
+    
+    @Override
+    public boolean isTerminalState() {
+        return false;
+    }
+    
+    @Override
+    public Duration getMaxExecutionTime() {
+        return Duration.ofMinutes(5); // Transição rápida
+    }
+}
+```
+
+### 5. Cliente Demo Completo
+
+```java
+public class StatePatternAdvancedDemo {
+    public static void main(String[] args) {
+        System.out.println("=== DEMONSTRAÇÃO AVANÇADA DO STATE PATTERN ===\n");
+        
+        // DEMO 1: Sistema de IA para NPCs
+        demonstrarSistemaIA();
+        
+        System.out.println("\n" + "=".repeat(80) + "\n");
+        
+        // DEMO 2: Workflow Empresarial
+        demonstrarWorkflow();
+    }
+    
+    private static void demonstrarSistemaIA() {
+        System.out.println("🤖 DEMO: SISTEMA DE IA PARA NPCs\n");
+        
+        // Cria NPC
+        NPC guard = new NPC("Guard-01", new Vector2D(0, 0));
+        
+        // Configura patrulha
+        guard.addPatrolWaypoint(new Vector2D(10, 0));
+        guard.addPatrolWaypoint(new Vector2D(10, 10));
+        guard.addPatrolWaypoint(new Vector2D(0, 10));
+        guard.addPatrolWaypoint(new Vector2D(0, 0));
+        
+        guard.printStatus();
+        
+        // Simula ativação da patrulha
+        System.out.println("1. ATIVANDO PATRULHA:");
+        guard.setState(NPCStateType.PATROL);
+        
+        // Simula passagem de tempo
+        for (int i = 0; i < 5; i++) {
+            guard.update(1.0f); // 1 segundo por iteração
+            Thread.sleep(500); // Pausa para visualização
+        }
+        
+        System.out.println("\n2. SIMULANDO DETECÇÃO DE INIMIGO:");
+        // Simula evento de inimigo detectado
+        guard.handleEvent(new GameEvent(GameEventType.ENEMY_SPOTTED, null));
+        guard.printStatus();
+        
+        // Simula alguns updates em chase
+        for (int i = 0; i < 3; i++) {
+            guard.update(1.0f);
+        }
+        
+        System.out.println("\n3. SIMULANDO DANO RECEBIDO:");
+        guard.takeDamage(80); // Dano alto
+        guard.printStatus();
+        
+        // Exibe histórico de transições
+        System.out.println("4. HISTÓRICO DE TRANSIÇÕES:");
+        guard.getTransitionHistory().forEach(System.out::println);
+    }
+    
+    private static void demonstrarWorkflow() {
+        System.out.println("📋 DEMO: WORKFLOW EMPRESARIAL\n");
+        
+        // Cria workflow de compra
+        WorkflowContext workflow = new WorkflowContext(
+            "WF-2025-001", 
+            "PURCHASE_REQUEST", 
+            "john.doe"
+        );
+        
+        // Adiciona dados do pedido
+        workflow.getRequestData().put("item", "Software License");
+        workflow.getRequestData().put("value", "15000");
+        workflow.getRequestData().put("vendor", "Microsoft");
+        workflow.getRequestData().put("justification", "Team productivity improvement");
+        
+        workflow.printWorkflowStatus();
+        
+        System.out.println("1. SUBMETENDO PEDIDO:");
+        workflow.setState(WorkflowStateType.SUBMITTED);
+        workflow.execute();
+        
+        System.out.println("\n2. PROCESSO DE APROVAÇÃO:");
+        
+        // Manager review
+        workflow.addComment("jane.manager", "Reviewing purchase justification");
+        Thread.sleep(1000);
+        workflow.approve("jane.manager");
+        
+        workflow.printWorkflowStatus();
+        
+        // Executive review (devido ao valor alto)
+        workflow.addComment("alice.exec", "High value purchase - needs executive approval");
+        Thread.sleep(1000);
+        workflow.approve("alice.exec");
+        
+        System.out.println("\n3. ESTADO FINAL:");
+        workflow.printWorkflowStatus();
+        
+        System.out.println("\n4. HISTÓRICO COMPLETO:");
+        workflow.getTransitionHistory().forEach(transition -> 
+            System.out.println(transition.toString()));
+            
+        System.out.println("\n5. COMENTÁRIOS:");
+        workflow.getComments().forEach(comment -> 
+            System.out.println(comment.toString()));
+    }
+}
+```
+
+---
+
+## Vantagens da Implementação Avançada
+
+1. **Escalabilidade:** Suporta sistemas complexos com múltiplos estados e transições.
+
+2. **Observabilidade:** Histórico completo de transições e eventos para debugging.
+
+3. **Flexibilidade:** Estados hierárquicos e condições complexas de transição.
+
+4. **Performance:** Otimizações como lazy loading e caching de estados.
+
+5. **Manutenibilidade:** Separação clara de responsabilidades e extensibilidade.
+
+6. **Robustez:** Validações de transição e tratamento de estados inválidos.
+
+---
+
+## Padrões Relacionados e Combinações
+
+- **Command Pattern:** Para implementar ações específicas de cada estado.
+- **Observer Pattern:** Para notificações de mudanças de estado.
+- **Memento Pattern:** Para salvar e restaurar estados do sistema.
+- **Visitor Pattern:** Para operações que dependem do tipo de estado.
+
+---
+
+## Conclusão
+
+O **State Pattern** em implementações avançadas vai muito além de simples máquinas de estado. Permite criar sistemas robustos e escaláveis para gerenciar comportamentos complexos em games, workflows empresariais, sistemas de IoT e muito mais.
+
+A chave para o sucesso está em identificar quando a complexidade justifica a estrutura adicional e em aplicar as técnicas adequadas de otimização e observabilidade para manter o sistema maintível e debugável.
+
+---
+
+Gostou deste post? Continue acompanhando para mais conteúdos sobre padrões de design e desenvolvimento em **Java**!
