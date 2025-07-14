@@ -1,0 +1,1221 @@
+---
+title: "State Pattern em Java: Gerenciando Estados e Comportamentos Dinâmicos"
+description: "Aprenda como implementar o State Pattern em Java para gerenciar estados complexos e comportamentos dinâmicos. Descubra como este padrão comportamental permite que objetos alterem seu comportamento quando seu estado interno muda, criando código mais limpo e flexível."
+date: Jul 13 2025
+---
+
+## Introdução
+
+O **State Pattern** (Padrão Estado) é um padrão de design comportamental que permite que um objeto altere seu comportamento quando seu estado interno muda. O padrão encapsula comportamentos específicos de estado em classes separadas e delega operações para o objeto de estado atual, criando a impressão de que o objeto mudou de classe.
+
+Este padrão é extremamente útil para modelar sistemas que possuem estados bem definidos e transições complexas entre esses estados, como máquinas de estado, workflows, jogos, sistemas de autenticação e muito mais.
+
+Neste post, exploraremos o conceito do State Pattern, suas vantagens e como implementá-lo em Java com exemplos práticos que demonstram como criar um sistema de máquina de vendas completo e um player de música com diferentes estados de operação.
+
+---
+
+## O que é o State Pattern?
+
+O State Pattern resolve o problema de objetos que precisam alterar seu comportamento baseado em seu estado interno, evitando o uso excessivo de condicionais (if/else ou switch) que tornam o código difícil de manter e estender.
+
+**Principais componentes:**
+
+1. **Context:** A classe que possui um estado interno e delega comportamentos para o objeto State atual.
+2. **State:** Interface ou classe abstrata que define as operações que variam conforme o estado.
+3. **ConcreteState:** Implementações específicas que definem o comportamento para cada estado particular.
+
+**Características principais:**
+
+- **Encapsulamento de Estados:** Cada estado é uma classe separada com comportamento específico.
+- **Transições Dinâmicas:** Estados podem mudar durante a execução baseado em condições.
+- **Eliminação de Condicionais:** Reduz drasticamente o uso de if/else e switch statements.
+- **Extensibilidade:** Novos estados podem ser adicionados facilmente sem modificar código existente.
+
+---
+
+## Quando usar o State Pattern?
+
+- Quando um objeto precisa alterar seu comportamento baseado em seu estado interno.
+- Para eliminar grandes blocos de condicionais que verificam o estado do objeto.
+- Quando você tem uma máquina de estados finita com transições complexas.
+- Para modelar workflows, processos de aprovação ou ciclos de vida de objetos.
+- Quando diferentes estados requerem implementações completamente diferentes dos mesmos métodos.
+- Para criar sistemas onde o comportamento muda dinamicamente durante a execução.
+
+---
+
+## Exemplo Prático em Java
+
+Vamos implementar dois exemplos completos: uma máquina de vendas e um player de música, demonstrando diferentes aspectos do State Pattern:
+
+### 1. Sistema de Máquina de Vendas
+
+#### Definindo a Interface State
+
+A interface comum para todos os estados da máquina:
+
+```java
+public interface VendingMachineState {
+    void insertCoin(VendingMachine machine);
+    void selectProduct(VendingMachine machine, String product);
+    void dispenseProduct(VendingMachine machine);
+    void refund(VendingMachine machine);
+    String getStateName();
+    String getStateDescription();
+}
+```
+
+#### Implementando o Context
+
+A classe VendingMachine que gerencia os estados:
+
+```java
+import java.util.HashMap;
+import java.util.Map;
+
+public class VendingMachine {
+    // Estados possíveis
+    private VendingMachineState waitingForCoinState;
+    private VendingMachineState coinInsertedState;
+    private VendingMachineState productSelectedState;
+    private VendingMachineState dispensingState;
+    private VendingMachineState outOfStockState;
+    private VendingMachineState maintenanceState;
+    
+    // Estado atual
+    private VendingMachineState currentState;
+    
+    // Dados da máquina
+    private double currentAmount;
+    private String selectedProduct;
+    private Map<String, Integer> inventory;
+    private Map<String, Double> prices;
+    private double totalSales;
+    
+    public VendingMachine() {
+        // Inicializa os estados
+        waitingForCoinState = new WaitingForCoinState();
+        coinInsertedState = new CoinInsertedState();
+        productSelectedState = new ProductSelectedState();
+        dispensingState = new DispensingState();
+        outOfStockState = new OutOfStockState();
+        maintenanceState = new MaintenanceState();
+        
+        // Estado inicial
+        currentState = waitingForCoinState;
+        
+        // Inicializa dados
+        currentAmount = 0.0;
+        selectedProduct = null;
+        inventory = new HashMap<>();
+        prices = new HashMap<>();
+        totalSales = 0.0;
+        
+        // Configura produtos
+        setupProducts();
+    }
+    
+    private void setupProducts() {
+        // Adiciona produtos ao estoque
+        inventory.put("COCA_COLA", 10);
+        inventory.put("PEPSI", 8);
+        inventory.put("WATER", 15);
+        inventory.put("CHIPS", 12);
+        inventory.put("CHOCOLATE", 6);
+        
+        // Define preços
+        prices.put("COCA_COLA", 2.50);
+        prices.put("PEPSI", 2.50);
+        prices.put("WATER", 1.50);
+        prices.put("CHIPS", 3.00);
+        prices.put("CHOCOLATE", 2.75);
+    }
+    
+    // Métodos delegados para o estado atual
+    public void insertCoin(double amount) {
+        System.out.println("Inserindo R$ " + String.format("%.2f", amount));
+        currentAmount += amount;
+        currentState.insertCoin(this);
+    }
+    
+    public void selectProduct(String product) {
+        System.out.println("Selecionando produto: " + product);
+        selectedProduct = product;
+        currentState.selectProduct(this, product);
+    }
+    
+    public void dispenseProduct() {
+        System.out.println("Solicitando dispensa do produto...");
+        currentState.dispenseProduct(this);
+    }
+    
+    public void refund() {
+        System.out.println("Solicitando reembolso...");
+        currentState.refund(this);
+    }
+    
+    // Métodos de transição de estado
+    public void setState(VendingMachineState state) {
+        System.out.println("Estado alterado: " + currentState.getStateName() + 
+                         " -> " + state.getStateName());
+        this.currentState = state;
+    }
+    
+    // Getters para os estados
+    public VendingMachineState getWaitingForCoinState() { return waitingForCoinState; }
+    public VendingMachineState getCoinInsertedState() { return coinInsertedState; }
+    public VendingMachineState getProductSelectedState() { return productSelectedState; }
+    public VendingMachineState getDispensingState() { return dispensingState; }
+    public VendingMachineState getOutOfStockState() { return outOfStockState; }
+    public VendingMachineState getMaintenanceState() { return maintenanceState; }
+    
+    // Métodos auxiliares
+    public boolean hasProduct(String product) {
+        return inventory.containsKey(product) && inventory.get(product) > 0;
+    }
+    
+    public boolean hasEnoughMoney(String product) {
+        return prices.containsKey(product) && currentAmount >= prices.get(product);
+    }
+    
+    public void dispenseProd(String product) {
+        if (hasProduct(product)) {
+            inventory.put(product, inventory.get(product) - 1);
+            double price = prices.get(product);
+            currentAmount -= price;
+            totalSales += price;
+            
+            System.out.println("=== PRODUTO DISPENSADO ===");
+            System.out.println("Produto: " + product);
+            System.out.println("Preço: R$ " + String.format("%.2f", price));
+            
+            if (currentAmount > 0) {
+                System.out.println("Troco: R$ " + String.format("%.2f", currentAmount));
+                currentAmount = 0;
+            }
+            System.out.println("========================");
+        }
+    }
+    
+    public void returnMoney() {
+        if (currentAmount > 0) {
+            System.out.println("Devolvendo R$ " + String.format("%.2f", currentAmount));
+            currentAmount = 0;
+        }
+        selectedProduct = null;
+    }
+    
+    public boolean isOutOfStock() {
+        return inventory.values().stream().allMatch(quantity -> quantity <= 0);
+    }
+    
+    // Getters
+    public double getCurrentAmount() { return currentAmount; }
+    public String getSelectedProduct() { return selectedProduct; }
+    public VendingMachineState getCurrentState() { return currentState; }
+    public Map<String, Integer> getInventory() { return new HashMap<>(inventory); }
+    public Map<String, Double> getPrices() { return new HashMap<>(prices); }
+    public double getTotalSales() { return totalSales; }
+    
+    // Método para mostrar status
+    public void showStatus() {
+        System.out.println("\n=== STATUS DA MÁQUINA ===");
+        System.out.println("Estado atual: " + currentState.getStateName());
+        System.out.println("Descrição: " + currentState.getStateDescription());
+        System.out.println("Valor inserido: R$ " + String.format("%.2f", currentAmount));
+        System.out.println("Produto selecionado: " + (selectedProduct != null ? selectedProduct : "Nenhum"));
+        System.out.println("Total de vendas: R$ " + String.format("%.2f", totalSales));
+        System.out.println("\nEstoque disponível:");
+        inventory.forEach((product, quantity) -> {
+            double price = prices.get(product);
+            System.out.println("  " + product + ": " + quantity + " unidades (R$ " + 
+                             String.format("%.2f", price) + " cada)");
+        });
+        System.out.println("========================\n");
+    }
+}
+```
+
+#### Implementando os Estados Concretos
+
+**Estado: Aguardando Moeda**
+
+```java
+public class WaitingForCoinState implements VendingMachineState {
+    @Override
+    public void insertCoin(VendingMachine machine) {
+        System.out.println("Moeda aceita! Agora você pode selecionar um produto.");
+        machine.setState(machine.getCoinInsertedState());
+    }
+    
+    @Override
+    public void selectProduct(VendingMachine machine, String product) {
+        System.out.println("Por favor, insira uma moeda primeiro!");
+    }
+    
+    @Override
+    public void dispenseProduct(VendingMachine machine) {
+        System.out.println("Insira uma moeda e selecione um produto primeiro!");
+    }
+    
+    @Override
+    public void refund(VendingMachine machine) {
+        System.out.println("Nenhum valor para reembolsar.");
+    }
+    
+    @Override
+    public String getStateName() {
+        return "Aguardando Moeda";
+    }
+    
+    @Override
+    public String getStateDescription() {
+        return "Máquina esperando que o cliente insira uma moeda";
+    }
+}
+```
+
+**Estado: Moeda Inserida**
+
+```java
+public class CoinInsertedState implements VendingMachineState {
+    @Override
+    public void insertCoin(VendingMachine machine) {
+        System.out.println("Moeda adicional aceita! Total: R$ " + 
+                         String.format("%.2f", machine.getCurrentAmount()));
+    }
+    
+    @Override
+    public void selectProduct(VendingMachine machine, String product) {
+        if (!machine.hasProduct(product)) {
+            System.out.println("Produto " + product + " não disponível ou fora de estoque!");
+            if (machine.isOutOfStock()) {
+                System.out.println("Máquina fora de estoque!");
+                machine.setState(machine.getOutOfStockState());
+            }
+            return;
+        }
+        
+        if (!machine.hasEnoughMoney(product)) {
+            double price = machine.getPrices().get(product);
+            double needed = price - machine.getCurrentAmount();
+            System.out.println("Valor insuficiente! Produto custa R$ " + 
+                             String.format("%.2f", price) + 
+                             ". Insira mais R$ " + String.format("%.2f", needed));
+            return;
+        }
+        
+        System.out.println("Produto selecionado: " + product + ". Preparando para dispensar...");
+        machine.setState(machine.getProductSelectedState());
+    }
+    
+    @Override
+    public void dispenseProduct(VendingMachine machine) {
+        System.out.println("Selecione um produto primeiro!");
+    }
+    
+    @Override
+    public void refund(VendingMachine machine) {
+        System.out.println("Processando reembolso...");
+        machine.returnMoney();
+        machine.setState(machine.getWaitingForCoinState());
+    }
+    
+    @Override
+    public String getStateName() {
+        return "Moeda Inserida";
+    }
+    
+    @Override
+    public String getStateDescription() {
+        return "Cliente inseriu moeda e pode selecionar produto";
+    }
+}
+```
+
+**Estado: Produto Selecionado**
+
+```java
+public class ProductSelectedState implements VendingMachineState {
+    @Override
+    public void insertCoin(VendingMachine machine) {
+        System.out.println("Produto já selecionado. Pressione dispensar ou cancele para inserir mais moedas.");
+    }
+    
+    @Override
+    public void selectProduct(VendingMachine machine, String product) {
+        System.out.println("Produto já selecionado: " + machine.getSelectedProduct() + 
+                         ". Pressione dispensar ou cancele para selecionar outro.");
+    }
+    
+    @Override
+    public void dispenseProduct(VendingMachine machine) {
+        System.out.println("Dispensando produto...");
+        machine.setState(machine.getDispensingState());
+        
+        // Simula tempo de dispensa
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        
+        machine.dispenseProd(machine.getSelectedProduct());
+        
+        // Volta ao estado inicial
+        machine.setState(machine.getWaitingForCoinState());
+    }
+    
+    @Override
+    public void refund(VendingMachine machine) {
+        System.out.println("Cancelando seleção e processando reembolso...");
+        machine.returnMoney();
+        machine.setState(machine.getWaitingForCoinState());
+    }
+    
+    @Override
+    public String getStateName() {
+        return "Produto Selecionado";
+    }
+    
+    @Override
+    public String getStateDescription() {
+        return "Produto foi selecionado e está pronto para ser dispensado";
+    }
+}
+```
+
+**Estado: Dispensando**
+
+```java
+public class DispensingState implements VendingMachineState {
+    @Override
+    public void insertCoin(VendingMachine machine) {
+        System.out.println("Aguarde! Produto sendo dispensado...");
+    }
+    
+    @Override
+    public void selectProduct(VendingMachine machine, String product) {
+        System.out.println("Aguarde! Produto sendo dispensado...");
+    }
+    
+    @Override
+    public void dispenseProduct(VendingMachine machine) {
+        System.out.println("Produto já está sendo dispensado...");
+    }
+    
+    @Override
+    public void refund(VendingMachine machine) {
+        System.out.println("Não é possível cancelar durante a dispensa!");
+    }
+    
+    @Override
+    public String getStateName() {
+        return "Dispensando";
+    }
+    
+    @Override
+    public String getStateDescription() {
+        return "Máquina está dispensando o produto selecionado";
+    }
+}
+```
+
+**Estado: Fora de Estoque**
+
+```java
+public class OutOfStockState implements VendingMachineState {
+    @Override
+    public void insertCoin(VendingMachine machine) {
+        System.out.println("Máquina fora de estoque! Reembolsando valor...");
+        machine.returnMoney();
+    }
+    
+    @Override
+    public void selectProduct(VendingMachine machine, String product) {
+        System.out.println("Máquina fora de estoque! Nenhum produto disponível.");
+    }
+    
+    @Override
+    public void dispenseProduct(VendingMachine machine) {
+        System.out.println("Máquina fora de estoque! Nenhum produto para dispensar.");
+    }
+    
+    @Override
+    public void refund(VendingMachine machine) {
+        System.out.println("Processando reembolso...");
+        machine.returnMoney();
+        machine.setState(machine.getWaitingForCoinState());
+    }
+    
+    @Override
+    public String getStateName() {
+        return "Fora de Estoque";
+    }
+    
+    @Override
+    public String getStateDescription() {
+        return "Máquina não possui produtos disponíveis";
+    }
+}
+```
+
+**Estado: Manutenção**
+
+```java
+public class MaintenanceState implements VendingMachineState {
+    @Override
+    public void insertCoin(VendingMachine machine) {
+        System.out.println("Máquina em manutenção! Serviço temporariamente indisponível.");
+        machine.returnMoney();
+    }
+    
+    @Override
+    public void selectProduct(VendingMachine machine, String product) {
+        System.out.println("Máquina em manutenção! Serviço temporariamente indisponível.");
+    }
+    
+    @Override
+    public void dispenseProduct(VendingMachine machine) {
+        System.out.println("Máquina em manutenção! Serviço temporariamente indisponível.");
+    }
+    
+    @Override
+    public void refund(VendingMachine machine) {
+        System.out.println("Processando reembolso durante manutenção...");
+        machine.returnMoney();
+    }
+    
+    @Override
+    public String getStateName() {
+        return "Manutenção";
+    }
+    
+    @Override
+    public String getStateDescription() {
+        return "Máquina está em modo de manutenção";
+    }
+}
+```
+
+### 2. Sistema de Player de Música
+
+Vamos criar um segundo exemplo com um player de música:
+
+#### Interface do Player State
+
+```java
+public interface PlayerState {
+    void play(MusicPlayer player);
+    void pause(MusicPlayer player);
+    void stop(MusicPlayer player);
+    void next(MusicPlayer player);
+    void previous(MusicPlayer player);
+    String getStateName();
+    boolean canAddToPlaylist();
+}
+```
+
+#### Context do Music Player
+
+```java
+import java.util.ArrayList;
+import java.util.List;
+
+public class MusicPlayer {
+    // Estados
+    private PlayerState stoppedState;
+    private PlayerState playingState;
+    private PlayerState pausedState;
+    private PlayerState emptyState;
+    
+    private PlayerState currentState;
+    
+    // Dados do player
+    private List<String> playlist;
+    private int currentTrackIndex;
+    private String currentTrack;
+    private int volume;
+    private boolean shuffleMode;
+    private boolean repeatMode;
+    
+    public MusicPlayer() {
+        // Inicializa estados
+        stoppedState = new StoppedState();
+        playingState = new PlayingState();
+        pausedState = new PausedState();
+        emptyState = new EmptyPlaylistState();
+        
+        // Inicializa dados
+        playlist = new ArrayList<>();
+        currentTrackIndex = 0;
+        currentTrack = null;
+        volume = 50;
+        shuffleMode = false;
+        repeatMode = false;
+        
+        // Estado inicial
+        currentState = emptyState;
+    }
+    
+    // Métodos públicos que delegam para o estado
+    public void play() {
+        currentState.play(this);
+    }
+    
+    public void pause() {
+        currentState.pause(this);
+    }
+    
+    public void stop() {
+        currentState.stop(this);
+    }
+    
+    public void next() {
+        currentState.next(this);
+    }
+    
+    public void previous() {
+        currentState.previous(this);
+    }
+    
+    // Gerenciamento da playlist
+    public void addTrack(String track) {
+        if (currentState.canAddToPlaylist()) {
+            playlist.add(track);
+            System.out.println("Adicionada: " + track);
+            
+            if (currentState == emptyState && !playlist.isEmpty()) {
+                currentTrackIndex = 0;
+                currentTrack = playlist.get(currentTrackIndex);
+                setState(stoppedState);
+            }
+        } else {
+            System.out.println("Não é possível adicionar música no estado atual: " + 
+                             currentState.getStateName());
+        }
+    }
+    
+    public void removeTrack(String track) {
+        if (playlist.remove(track)) {
+            System.out.println("Removida: " + track);
+            
+            if (playlist.isEmpty()) {
+                currentTrack = null;
+                currentTrackIndex = 0;
+                setState(emptyState);
+            } else if (currentTrackIndex >= playlist.size()) {
+                currentTrackIndex = 0;
+                currentTrack = playlist.get(currentTrackIndex);
+            }
+        }
+    }
+    
+    public void clearPlaylist() {
+        playlist.clear();
+        currentTrack = null;
+        currentTrackIndex = 0;
+        setState(emptyState);
+        System.out.println("Playlist limpa");
+    }
+    
+    // Navegação na playlist
+    public void goToNextTrack() {
+        if (!playlist.isEmpty()) {
+            if (shuffleMode) {
+                currentTrackIndex = (int) (Math.random() * playlist.size());
+            } else {
+                currentTrackIndex = (currentTrackIndex + 1) % playlist.size();
+            }
+            currentTrack = playlist.get(currentTrackIndex);
+        }
+    }
+    
+    public void goToPreviousTrack() {
+        if (!playlist.isEmpty()) {
+            if (shuffleMode) {
+                currentTrackIndex = (int) (Math.random() * playlist.size());
+            } else {
+                currentTrackIndex = (currentTrackIndex - 1 + playlist.size()) % playlist.size();
+            }
+            currentTrack = playlist.get(currentTrackIndex);
+        }
+    }
+    
+    // Controle de volume e modos
+    public void setVolume(int volume) {
+        this.volume = Math.max(0, Math.min(100, volume));
+        System.out.println("Volume ajustado para: " + this.volume);
+    }
+    
+    public void toggleShuffle() {
+        shuffleMode = !shuffleMode;
+        System.out.println("Modo shuffle: " + (shuffleMode ? "ON" : "OFF"));
+    }
+    
+    public void toggleRepeat() {
+        repeatMode = !repeatMode;
+        System.out.println("Modo repeat: " + (repeatMode ? "ON" : "OFF"));
+    }
+    
+    // Transições de estado
+    public void setState(PlayerState state) {
+        System.out.println("Player: " + currentState.getStateName() + " -> " + state.getStateName());
+        this.currentState = state;
+    }
+    
+    // Getters para estados
+    public PlayerState getStoppedState() { return stoppedState; }
+    public PlayerState getPlayingState() { return playingState; }
+    public PlayerState getPausedState() { return pausedState; }
+    public PlayerState getEmptyState() { return emptyState; }
+    
+    // Getters para dados
+    public String getCurrentTrack() { return currentTrack; }
+    public List<String> getPlaylist() { return new ArrayList<>(playlist); }
+    public int getCurrentTrackIndex() { return currentTrackIndex; }
+    public int getVolume() { return volume; }
+    public boolean isShuffleMode() { return shuffleMode; }
+    public boolean isRepeatMode() { return repeatMode; }
+    public PlayerState getCurrentState() { return currentState; }
+    
+    public void showStatus() {
+        System.out.println("\n=== STATUS DO PLAYER ===");
+        System.out.println("Estado: " + currentState.getStateName());
+        System.out.println("Música atual: " + (currentTrack != null ? currentTrack : "Nenhuma"));
+        System.out.println("Posição na playlist: " + (currentTrackIndex + 1) + "/" + playlist.size());
+        System.out.println("Volume: " + volume);
+        System.out.println("Shuffle: " + (shuffleMode ? "ON" : "OFF"));
+        System.out.println("Repeat: " + (repeatMode ? "ON" : "OFF"));
+        System.out.println("Playlist (" + playlist.size() + " músicas):");
+        for (int i = 0; i < playlist.size(); i++) {
+            String marker = (i == currentTrackIndex) ? " -> " : "    ";
+            System.out.println(marker + (i + 1) + ". " + playlist.get(i));
+        }
+        System.out.println("=======================\n");
+    }
+}
+```
+
+#### Estados do Player
+
+**Estado: Vazio**
+
+```java
+public class EmptyPlaylistState implements PlayerState {
+    @Override
+    public void play(MusicPlayer player) {
+        System.out.println("Playlist vazia! Adicione músicas primeiro.");
+    }
+    
+    @Override
+    public void pause(MusicPlayer player) {
+        System.out.println("Nada está tocando.");
+    }
+    
+    @Override
+    public void stop(MusicPlayer player) {
+        System.out.println("Player já está parado.");
+    }
+    
+    @Override
+    public void next(MusicPlayer player) {
+        System.out.println("Playlist vazia! Não há próxima música.");
+    }
+    
+    @Override
+    public void previous(MusicPlayer player) {
+        System.out.println("Playlist vazia! Não há música anterior.");
+    }
+    
+    @Override
+    public String getStateName() {
+        return "Playlist Vazia";
+    }
+    
+    @Override
+    public boolean canAddToPlaylist() {
+        return true;
+    }
+}
+```
+
+**Estado: Parado**
+
+```java
+public class StoppedState implements PlayerState {
+    @Override
+    public void play(MusicPlayer player) {
+        System.out.println("▶️ Reproduzindo: " + player.getCurrentTrack());
+        player.setState(player.getPlayingState());
+    }
+    
+    @Override
+    public void pause(MusicPlayer player) {
+        System.out.println("Player já está parado.");
+    }
+    
+    @Override
+    public void stop(MusicPlayer player) {
+        System.out.println("Player já está parado.");
+    }
+    
+    @Override
+    public void next(MusicPlayer player) {
+        player.goToNextTrack();
+        System.out.println("Próxima música: " + player.getCurrentTrack());
+    }
+    
+    @Override
+    public void previous(MusicPlayer player) {
+        player.goToPreviousTrack();
+        System.out.println("Música anterior: " + player.getCurrentTrack());
+    }
+    
+    @Override
+    public String getStateName() {
+        return "Parado";
+    }
+    
+    @Override
+    public boolean canAddToPlaylist() {
+        return true;
+    }
+}
+```
+
+**Estado: Tocando**
+
+```java
+public class PlayingState implements PlayerState {
+    @Override
+    public void play(MusicPlayer player) {
+        System.out.println("Já está reproduzindo: " + player.getCurrentTrack());
+    }
+    
+    @Override
+    public void pause(MusicPlayer player) {
+        System.out.println("⏸️ Pausado: " + player.getCurrentTrack());
+        player.setState(player.getPausedState());
+    }
+    
+    @Override
+    public void stop(MusicPlayer player) {
+        System.out.println("⏹️ Parado: " + player.getCurrentTrack());
+        player.setState(player.getStoppedState());
+    }
+    
+    @Override
+    public void next(MusicPlayer player) {
+        System.out.println("⏭️ Avançando para próxima música...");
+        player.goToNextTrack();
+        System.out.println("▶️ Reproduzindo: " + player.getCurrentTrack());
+    }
+    
+    @Override
+    public void previous(MusicPlayer player) {
+        System.out.println("⏮️ Voltando para música anterior...");
+        player.goToPreviousTrack();
+        System.out.println("▶️ Reproduzindo: " + player.getCurrentTrack());
+    }
+    
+    @Override
+    public String getStateName() {
+        return "Reproduzindo";
+    }
+    
+    @Override
+    public boolean canAddToPlaylist() {
+        return true;
+    }
+}
+```
+
+**Estado: Pausado**
+
+```java
+public class PausedState implements PlayerState {
+    @Override
+    public void play(MusicPlayer player) {
+        System.out.println("▶️ Retomando reprodução: " + player.getCurrentTrack());
+        player.setState(player.getPlayingState());
+    }
+    
+    @Override
+    public void pause(MusicPlayer player) {
+        System.out.println("Já está pausado.");
+    }
+    
+    @Override
+    public void stop(MusicPlayer player) {
+        System.out.println("⏹️ Parado: " + player.getCurrentTrack());
+        player.setState(player.getStoppedState());
+    }
+    
+    @Override
+    public void next(MusicPlayer player) {
+        player.goToNextTrack();
+        System.out.println("Próxima música (pausado): " + player.getCurrentTrack());
+    }
+    
+    @Override
+    public void previous(MusicPlayer player) {
+        player.goToPreviousTrack();
+        System.out.println("Música anterior (pausado): " + player.getCurrentTrack());
+    }
+    
+    @Override
+    public String getStateName() {
+        return "Pausado";
+    }
+    
+    @Override
+    public boolean canAddToPlaylist() {
+        return true;
+    }
+}
+```
+
+### 3. Criando o Cliente Demo
+
+Exemplo demonstrando o uso completo de ambos os sistemas:
+
+```java
+public class StatePatternDemo {
+    public static void main(String[] args) {
+        System.out.println("=== DEMONSTRAÇÃO DO STATE PATTERN ===\n");
+        
+        // DEMO 1: Máquina de Vendas
+        demonstrarMaquinaVendas();
+        
+        System.out.println("\n" + "=".repeat(60) + "\n");
+        
+        // DEMO 2: Player de Música
+        demonstrarMusicPlayer();
+    }
+    
+    private static void demonstrarMaquinaVendas() {
+        System.out.println("🏪 DEMONSTRAÇÃO: MÁQUINA DE VENDAS\n");
+        
+        VendingMachine maquina = new VendingMachine();
+        maquina.showStatus();
+        
+        // Tentativa de compra sem moeda
+        System.out.println("1. TENTANDO COMPRAR SEM MOEDA:");
+        maquina.selectProduct("COCA_COLA");
+        maquina.dispenseProduct();
+        
+        System.out.println("\n" + "-".repeat(40) + "\n");
+        
+        // Inserindo valor insuficiente
+        System.out.println("2. INSERINDO VALOR INSUFICIENTE:");
+        maquina.insertCoin(1.00);
+        maquina.selectProduct("COCA_COLA"); // Custa R$ 2.50
+        
+        System.out.println("\n" + "-".repeat(40) + "\n");
+        
+        // Completando a compra
+        System.out.println("3. COMPLETANDO A COMPRA:");
+        maquina.insertCoin(2.00); // Total agora é R$ 3.00
+        maquina.selectProduct("COCA_COLA");
+        maquina.dispenseProduct();
+        
+        maquina.showStatus();
+        
+        System.out.println("\n" + "-".repeat(40) + "\n");
+        
+        // Testando reembolso
+        System.out.println("4. TESTANDO REEMBOLSO:");
+        maquina.insertCoin(5.00);
+        maquina.selectProduct("WATER");
+        maquina.refund();
+        
+        System.out.println("\n" + "-".repeat(40) + "\n");
+        
+        // Simulando múltiplas compras até esgotamento
+        System.out.println("5. MÚLTIPLAS COMPRAS ATÉ ESGOTAMENTO:");
+        for (int i = 0; i < 3; i++) {
+            maquina.insertCoin(3.00);
+            maquina.selectProduct("CHIPS");
+            maquina.dispenseProduct();
+        }
+        
+        maquina.showStatus();
+    }
+    
+    private static void demonstrarMusicPlayer() {
+        System.out.println("🎵 DEMONSTRAÇÃO: MUSIC PLAYER\n");
+        
+        MusicPlayer player = new MusicPlayer();
+        player.showStatus();
+        
+        // Tentativas com playlist vazia
+        System.out.println("1. TENTATIVAS COM PLAYLIST VAZIA:");
+        player.play();
+        player.next();
+        player.pause();
+        
+        System.out.println("\n" + "-".repeat(40) + "\n");
+        
+        // Adicionando músicas
+        System.out.println("2. ADICIONANDO MÚSICAS À PLAYLIST:");
+        player.addTrack("Bohemian Rhapsody - Queen");
+        player.addTrack("Imagine - John Lennon");
+        player.addTrack("Hotel California - Eagles");
+        player.addTrack("Stairway to Heaven - Led Zeppelin");
+        player.addTrack("Sweet Child O' Mine - Guns N' Roses");
+        
+        player.showStatus();
+        
+        System.out.println("\n" + "-".repeat(40) + "\n");
+        
+        // Testando reprodução
+        System.out.println("3. TESTANDO REPRODUÇÃO:");
+        player.play();
+        player.setVolume(75);
+        
+        // Pausar e retomar
+        System.out.println("\nPausando...");
+        player.pause();
+        
+        System.out.println("\nRetomando...");
+        player.play();
+        
+        System.out.println("\n" + "-".repeat(40) + "\n");
+        
+        // Navegação na playlist
+        System.out.println("4. NAVEGAÇÃO NA PLAYLIST:");
+        player.next();
+        player.next();
+        player.previous();
+        
+        System.out.println("\n" + "-".repeat(40) + "\n");
+        
+        // Testando modos shuffle e repeat
+        System.out.println("5. TESTANDO MODOS ESPECIAIS:");
+        player.toggleShuffle();
+        player.next();
+        player.next();
+        
+        player.toggleRepeat();
+        player.showStatus();
+        
+        System.out.println("\n" + "-".repeat(40) + "\n");
+        
+        // Pausar e navegar
+        System.out.println("6. PAUSAR E NAVEGAR:");
+        player.pause();
+        player.next();
+        player.previous();
+        player.play();
+        
+        System.out.println("\n" + "-".repeat(40) + "\n");
+        
+        // Testando stop
+        System.out.println("7. TESTANDO STOP:");
+        player.stop();
+        player.next();
+        player.play();
+        
+        System.out.println("\n" + "-".repeat(40) + "\n");
+        
+        // Limpando playlist
+        System.out.println("8. LIMPANDO PLAYLIST:");
+        player.clearPlaylist();
+        player.play();
+        
+        player.showStatus();
+    }
+}
+```
+
+### Saída do Programa
+
+```
+=== DEMONSTRAÇÃO DO STATE PATTERN ===
+
+🏪 DEMONSTRAÇÃO: MÁQUINA DE VENDAS
+
+=== STATUS DA MÁQUINA ===
+Estado atual: Aguardando Moeda
+Descrição: Máquina esperando que o cliente insira uma moeda
+Valor inserido: R$ 0,00
+Produto selecionado: Nenhum
+Total de vendas: R$ 0,00
+
+Estoque disponível:
+  COCA_COLA: 10 unidades (R$ 2,50 cada)
+  PEPSI: 8 unidades (R$ 2,50 cada)
+  WATER: 15 unidades (R$ 1,50 cada)
+  CHIPS: 12 unidades (R$ 3,00 cada)
+  CHOCOLATE: 6 unidades (R$ 2,75 cada)
+========================
+
+1. TENTANDO COMPRAR SEM MOEDA:
+Selecionando produto: COCA_COLA
+Por favor, insira uma moeda primeiro!
+Solicitando dispensa do produto...
+Insira uma moeda e selecione um produto primeiro!
+
+----------------------------------------
+
+2. INSERINDO VALOR INSUFICIENTE:
+Inserindo R$ 1,00
+Estado alterado: Aguardando Moeda -> Moeda Inserida
+Moeda aceita! Agora você pode selecionar um produto.
+Selecionando produto: COCA_COLA
+Valor insuficiente! Produto custa R$ 2,50. Insira mais R$ 1,50
+
+----------------------------------------
+
+3. COMPLETANDO A COMPRA:
+Inserindo R$ 2,00
+Moeda adicional aceita! Total: R$ 3,00
+Selecionando produto: COCA_COLA
+Produto selecionado: COCA_COLA. Preparando para dispensar...
+Estado alterado: Moeda Inserida -> Produto Selecionado
+Solicitando dispensa do produto...
+Dispensando produto...
+Estado alterado: Produto Selecionado -> Dispensando
+=== PRODUTO DISPENSADO ===
+Produto: COCA_COLA
+Preço: R$ 2,50
+Troco: R$ 0,50
+========================
+Estado alterado: Dispensando -> Aguardando Moeda
+
+============================================================
+
+🎵 DEMONSTRAÇÃO: MUSIC PLAYER
+
+=== STATUS DO PLAYER ===
+Estado: Playlist Vazia
+Música atual: Nenhuma
+Posição na playlist: 1/0
+Volume: 50
+Shuffle: OFF
+Repeat: OFF
+Playlist (0 músicas):
+=======================
+
+1. TENTATIVAS COM PLAYLIST VAZIA:
+Playlist vazia! Adicione músicas primeiro.
+Playlist vazia! Não há próxima música.
+Nada está tocando.
+
+----------------------------------------
+
+2. ADICIONANDO MÚSICAS À PLAYLIST:
+Adicionada: Bohemian Rhapsody - Queen
+Player: Playlist Vazia -> Parado
+Adicionada: Imagine - John Lennon
+Adicionada: Hotel California - Eagles
+Adicionada: Stairway to Heaven - Led Zeppelin
+Adicionada: Sweet Child O' Mine - Guns N' Roses
+
+=== STATUS DO PLAYER ===
+Estado: Parado
+Música atual: Bohemian Rhapsody - Queen
+Posição na playlist: 1/5
+Volume: 50
+Shuffle: OFF
+Repeat: OFF
+Playlist (5 músicas):
+ ->  1. Bohemian Rhapsody - Queen
+     2. Imagine - John Lennon
+     3. Hotel California - Eagles
+     4. Stairway to Heaven - Led Zeppelin
+     5. Sweet Child O' Mine - Guns N' Roses
+=======================
+
+----------------------------------------
+
+3. TESTANDO REPRODUÇÃO:
+▶️ Reproduzindo: Bohemian Rhapsody - Queen
+Player: Parado -> Reproduzindo
+Volume ajustado para: 75
+
+Pausando...
+⏸️ Pausado: Bohemian Rhapsody - Queen
+Player: Reproduzindo -> Pausado
+
+Retomando...
+▶️ Retomando reprodução: Bohemian Rhapsody - Queen
+Player: Pausado -> Reproduzindo
+```
+
+### Explicação do Código
+
+1. **Encapsulamento de Estados:** Cada estado (Aguardando Moeda, Tocando, Pausado, etc.) é uma classe separada com comportamento específico.
+
+2. **Context Inteligente:** As classes VendingMachine e MusicPlayer delegam operações para o estado atual e gerenciam transições.
+
+3. **Transições Dinâmicas:** Estados mudam baseado em condições (inserir moeda, selecionar produto, adicionar música, etc.).
+
+4. **Comportamentos Específicos:** Cada estado responde diferentemente às mesmas operações.
+
+5. **Extensibilidade:** Novos estados podem ser facilmente adicionados (ex: estado de manutenção).
+
+---
+
+## Vantagens do State Pattern
+
+1. **Eliminação de Condicionais:** Remove grandes blocos de if/else e switch statements, tornando o código mais limpo.
+
+2. **Organização Clara:** Cada estado tem sua própria classe, facilitando a compreensão e manutenção.
+
+3. **Extensibilidade:** Novos estados podem ser adicionados facilmente sem modificar código existente.
+
+4. **Encapsulamento:** Comportamentos específicos de estado são encapsulados em classes dedicadas.
+
+5. **Transições Controladas:** O padrão facilita o controle e validação de transições entre estados.
+
+6. **Reutilização:** Estados podem ser reutilizados em diferentes contextos.
+
+---
+
+## Desvantagens do State Pattern
+
+1. **Complexidade Inicial:** Pode ser overkill para sistemas simples com poucos estados.
+
+2. **Número de Classes:** Aumenta significativamente o número de classes no sistema.
+
+3. **Overhead de Objetos:** Cada estado requer uma instância separada (embora possam ser singletons).
+
+4. **Curva de Aprendizado:** Pode ser difícil de entender para desenvolvedores inexperientes.
+
+5. **Gerenciamento de Transições:** Transições complexas podem requerer lógica adicional.
+
+---
+
+## Quando evitar o State Pattern?
+
+- Para sistemas com apenas 2-3 estados simples sem comportamentos complexos.
+- Quando as transições de estado são extremamente simples e raras.
+- Se o comportamento de cada estado é quase idêntico.
+- Para sistemas onde a performance é crítica e o overhead de objetos é inaceitável.
+- Quando a lógica de estado muda frequentemente e a flexibilidade não compensa a complexidade.
+- Para aplicações onde o estado é puramente dados sem comportamentos associados.
+
+---
+
+## Padrões Relacionados
+
+- **Strategy Pattern:** Ambos encapsulam comportamentos, mas State muda comportamento baseado em estado interno enquanto Strategy é configurado externamente.
+- **Command Pattern:** Pode ser usado junto com State para implementar ações específicas de cada estado.
+- **Observer Pattern:** Pode notificar sobre mudanças de estado para objetos interessados.
+- **Singleton Pattern:** Estados frequentemente são implementados como singletons para economizar memória.
+
+---
+
+## Conclusão
+
+O **State Pattern** é uma ferramenta poderosa para gerenciar comportamentos complexos que dependem do estado interno de objetos. Ele transforma código condicional confuso em uma hierarquia clara e extensível de classes de estado, facilitando a manutenção e evolução do sistema.
+
+A chave para o sucesso na implementação do State Pattern está em identificar corretamente quando o comportamento de um objeto depende significativamente de seu estado interno e quando esse comportamento é complexo o suficiente para justificar a estrutura adicional do padrão.
+
+Seja para modelar máquinas de estado, workflows de negócio, interfaces de usuário com diferentes modos de operação, ou qualquer sistema onde o comportamento muda dinamicamente, o State Pattern oferece uma solução elegante e mantível que cresce naturalmente com a complexidade do sistema.
+
+---
+
+Gostou deste post? Continue acompanhando para mais conteúdos sobre padrões de design e desenvolvimento em **Java**!
