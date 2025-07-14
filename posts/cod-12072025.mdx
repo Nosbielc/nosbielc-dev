@@ -1,0 +1,941 @@
+---
+title: "Memento Pattern em Java: Capturando e Restaurando Estados de Objetos"
+description: "Aprenda como implementar o Memento Pattern em Java para capturar e restaurar estados de objetos sem violar encapsulamento. Descubra como este padrão comportamental permite criar funcionalidades de undo/redo, checkpoints e versionamento de estado com exemplos práticos."
+date: Jul 12 2025
+---
+
+## Introdução
+
+O **Memento Pattern** (Padrão Memento) é um padrão de design comportamental que permite capturar e externalizar o estado interno de um objeto sem violar seu encapsulamento, de modo que o objeto possa ser restaurado para este estado posteriormente. Este padrão é fundamental para implementar funcionalidades como undo/redo, checkpoints, snapshots e versionamento de estado.
+
+Neste post, exploraremos o conceito do Memento Pattern, suas vantagens e como implementá-lo em Java com exemplos práticos que demonstram como criar um sistema de editor de texto com funcionalidade completa de desfazer/refazer e gerenciamento de histórico de estados.
+
+---
+
+## O que é o Memento Pattern?
+
+O Memento Pattern resolve o problema de capturar e restaurar o estado de um objeto sem expor seus detalhes internos ou violar o princípio de encapsulamento. Em vez de permitir acesso direto aos campos privados do objeto, o padrão usa um objeto intermediário (memento) que armazena o estado de forma segura.
+
+**Principais componentes:**
+
+1. **Originator:** O objeto cujo estado precisa ser salvo e restaurado.
+2. **Memento:** Objeto que armazena o estado interno do Originator de forma imutável.
+3. **Caretaker:** Responsável por gerenciar os mementos, mas sem acessar ou modificar seu conteúdo.
+
+**Características principais:**
+
+- **Preservação do Encapsulamento:** O estado é capturado sem expor a estrutura interna do objeto.
+- **Undo/Redo:** Permite implementar funcionalidades de desfazer e refazer operações.
+- **Snapshots:** Cria pontos de restauração do estado de objetos.
+- **Versionamento:** Mantém histórico de diferentes versões do estado.
+
+---
+
+## Quando usar o Memento Pattern?
+
+- Quando você precisa implementar funcionalidades de undo/redo em sua aplicação.
+- Para criar checkpoints ou snapshots do estado de objetos complexos.
+- Quando você quer salvar e restaurar o estado de um objeto sem violar encapsulamento.
+- Para implementar sistemas de versionamento ou controle de mudanças.
+- Quando você precisa reverter operações que modificam o estado de objetos.
+- Para criar funcionalidades de backup temporário durante operações críticas.
+
+---
+
+## Exemplo Prático em Java
+
+Vamos implementar um sistema de editor de texto completo com funcionalidades de undo/redo, demonstrando diferentes aspectos do Memento Pattern:
+
+### 1. Definindo o Memento
+
+A classe que armazena o estado de forma imutável:
+
+```java
+public class TextMemento {
+    private final String content;
+    private final int cursorPosition;
+    private final boolean isModified;
+    private final long timestamp;
+    
+    // Construtor package-private para controlar acesso
+    TextMemento(String content, int cursorPosition, boolean isModified) {
+        this.content = content;
+        this.cursorPosition = cursorPosition;
+        this.isModified = isModified;
+        this.timestamp = System.currentTimeMillis();
+    }
+    
+    // Métodos package-private para acesso controlado
+    String getContent() {
+        return content;
+    }
+    
+    int getCursorPosition() {
+        return cursorPosition;
+    }
+    
+    boolean isModified() {
+        return isModified;
+    }
+    
+    public long getTimestamp() {
+        return timestamp;
+    }
+    
+    @Override
+    public String toString() {
+        return "TextMemento{" +
+                "content='" + (content.length() > 20 ? content.substring(0, 20) + "..." : content) + "'" +
+                ", cursorPosition=" + cursorPosition +
+                ", isModified=" + isModified +
+                ", timestamp=" + timestamp +
+                '}';
+    }
+}
+```
+
+### 2. Implementando o Originator
+
+A classe TextEditor que precisa ter seu estado salvo e restaurado:
+
+```java
+public class TextEditor {
+    private StringBuilder content;
+    private int cursorPosition;
+    private boolean isModified;
+    private String fileName;
+    
+    public TextEditor() {
+        this.content = new StringBuilder();
+        this.cursorPosition = 0;
+        this.isModified = false;
+        this.fileName = "Untitled";
+    }
+    
+    public TextEditor(String fileName) {
+        this();
+        this.fileName = fileName;
+    }
+    
+    // Método para criar um memento com o estado atual
+    public TextMemento createMemento() {
+        return new TextMemento(
+            content.toString(), 
+            cursorPosition, 
+            isModified
+        );
+    }
+    
+    // Método para restaurar o estado a partir de um memento
+    public void restoreFromMemento(TextMemento memento) {
+        this.content = new StringBuilder(memento.getContent());
+        this.cursorPosition = memento.getCursorPosition();
+        this.isModified = memento.isModified();
+    }
+    
+    // Operações do editor
+    public void insertText(String text) {
+        content.insert(cursorPosition, text);
+        cursorPosition += text.length();
+        isModified = true;
+    }
+    
+    public void deleteText(int length) {
+        if (cursorPosition >= length) {
+            content.delete(cursorPosition - length, cursorPosition);
+            cursorPosition -= length;
+            isModified = true;
+        }
+    }
+    
+    public void replaceText(int start, int end, String newText) {
+        if (start >= 0 && end <= content.length() && start <= end) {
+            content.replace(start, end, newText);
+            cursorPosition = start + newText.length();
+            isModified = true;
+        }
+    }
+    
+    public void moveCursor(int newPosition) {
+        if (newPosition >= 0 && newPosition <= content.length()) {
+            cursorPosition = newPosition;
+        }
+    }
+    
+    public void selectAll() {
+        cursorPosition = content.length();
+    }
+    
+    public void clear() {
+        content.setLength(0);
+        cursorPosition = 0;
+        isModified = true;
+    }
+    
+    // Getters
+    public String getContent() {
+        return content.toString();
+    }
+    
+    public int getCursorPosition() {
+        return cursorPosition;
+    }
+    
+    public boolean isModified() {
+        return isModified;
+    }
+    
+    public String getFileName() {
+        return fileName;
+    }
+    
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
+    
+    public void markAsUnmodified() {
+        this.isModified = false;
+    }
+    
+    @Override
+    public String toString() {
+        return "TextEditor{" +
+                "fileName='" + fileName + "'" +
+                ", content='" + (content.length() > 30 ? content.substring(0, 30) + "..." : content) + "'" +
+                ", cursorPosition=" + cursorPosition +
+                ", isModified=" + isModified +
+                '}';
+    }
+}
+```
+
+### 3. Implementando o Caretaker
+
+O gerenciador de histórico que controla os mementos:
+
+```java
+import java.util.*;
+
+public class EditorHistory {
+    private final Stack<TextMemento> undoStack;
+    private final Stack<TextMemento> redoStack;
+    private final int maxHistorySize;
+    private final List<HistoryObserver> observers;
+    
+    public EditorHistory() {
+        this(50); // Limite padrão de 50 estados
+    }
+    
+    public EditorHistory(int maxHistorySize) {
+        this.maxHistorySize = maxHistorySize;
+        this.undoStack = new Stack<>();
+        this.redoStack = new Stack<>();
+        this.observers = new ArrayList<>();
+    }
+    
+    // Salva o estado atual
+    public void saveState(TextMemento memento) {
+        // Limpa o stack de redo quando uma nova ação é executada
+        redoStack.clear();
+        
+        // Adiciona o memento ao stack de undo
+        undoStack.push(memento);
+        
+        // Limita o tamanho do histórico
+        if (undoStack.size() > maxHistorySize) {
+            undoStack.removeElementAt(0);
+        }
+        
+        notifyObservers();
+    }
+    
+    // Desfaz a última operação
+    public TextMemento undo() {
+        if (!undoStack.isEmpty()) {
+            TextMemento currentState = undoStack.pop();
+            redoStack.push(currentState);
+            notifyObservers();
+            
+            // Retorna o estado anterior (se existir)
+            return undoStack.isEmpty() ? null : undoStack.peek();
+        }
+        return null;
+    }
+    
+    // Refaz a última operação desfeita
+    public TextMemento redo() {
+        if (!redoStack.isEmpty()) {
+            TextMemento stateToRestore = redoStack.pop();
+            undoStack.push(stateToRestore);
+            notifyObservers();
+            return stateToRestore;
+        }
+        return null;
+    }
+    
+    // Verifica se é possível desfazer
+    public boolean canUndo() {
+        return undoStack.size() > 1; // Mantém pelo menos um estado
+    }
+    
+    // Verifica se é possível refazer
+    public boolean canRedo() {
+        return !redoStack.isEmpty();
+    }
+    
+    // Limpa todo o histórico
+    public void clear() {
+        undoStack.clear();
+        redoStack.clear();
+        notifyObservers();
+    }
+    
+    // Obtém informações sobre o histórico
+    public int getUndoStackSize() {
+        return undoStack.size();
+    }
+    
+    public int getRedoStackSize() {
+        return redoStack.size();
+    }
+    
+    public List<TextMemento> getUndoHistory() {
+        return new ArrayList<>(undoStack);
+    }
+    
+    public List<TextMemento> getRedoHistory() {
+        return new ArrayList<>(redoStack);
+    }
+    
+    // Padrão Observer para notificar mudanças no histórico
+    public interface HistoryObserver {
+        void onHistoryChanged(boolean canUndo, boolean canRedo);
+    }
+    
+    public void addObserver(HistoryObserver observer) {
+        observers.add(observer);
+    }
+    
+    public void removeObserver(HistoryObserver observer) {
+        observers.remove(observer);
+    }
+    
+    private void notifyObservers() {
+        for (HistoryObserver observer : observers) {
+            observer.onHistoryChanged(canUndo(), canRedo());
+        }
+    }
+    
+    @Override
+    public String toString() {
+        return "EditorHistory{" +
+                "undoStackSize=" + undoStack.size() +
+                ", redoStackSize=" + redoStack.size() +
+                ", maxHistorySize=" + maxHistorySize +
+                '}';
+    }
+}
+```
+
+### 4. Criando um Command Pattern Integrado
+
+Para operações mais complexas, vamos integrar com Command Pattern:
+
+```java
+// Interface para comandos do editor
+public interface EditorCommand {
+    void execute();
+    void undo();
+    String getDescription();
+}
+
+// Comando para inserir texto
+public class InsertTextCommand implements EditorCommand {
+    private final TextEditor editor;
+    private final String text;
+    private final int insertPosition;
+    
+    public InsertTextCommand(TextEditor editor, String text) {
+        this.editor = editor;
+        this.text = text;
+        this.insertPosition = editor.getCursorPosition();
+    }
+    
+    @Override
+    public void execute() {
+        editor.insertText(text);
+    }
+    
+    @Override
+    public void undo() {
+        editor.moveCursor(insertPosition + text.length());
+        editor.deleteText(text.length());
+    }
+    
+    @Override
+    public String getDescription() {
+        return "Insert: '" + text + "'";
+    }
+}
+
+// Comando para deletar texto
+public class DeleteTextCommand implements EditorCommand {
+    private final TextEditor editor;
+    private final int length;
+    private final int deletePosition;
+    private String deletedText;
+    
+    public DeleteTextCommand(TextEditor editor, int length) {
+        this.editor = editor;
+        this.length = length;
+        this.deletePosition = editor.getCursorPosition();
+    }
+    
+    @Override
+    public void execute() {
+        // Salva o texto que será deletado para poder desfazer
+        int start = Math.max(0, deletePosition - length);
+        int end = deletePosition;
+        deletedText = editor.getContent().substring(start, end);
+        editor.deleteText(length);
+    }
+    
+    @Override
+    public void undo() {
+        editor.moveCursor(deletePosition - length);
+        editor.insertText(deletedText);
+    }
+    
+    @Override
+    public String getDescription() {
+        return "Delete: '" + (deletedText != null ? deletedText : length + " chars") + "'";
+    }
+}
+
+// Comando macro que agrupa múltiplos comandos
+public class MacroCommand implements EditorCommand {
+    private final List<EditorCommand> commands;
+    private final String description;
+    
+    public MacroCommand(String description) {
+        this.description = description;
+        this.commands = new ArrayList<>();
+    }
+    
+    public void addCommand(EditorCommand command) {
+        commands.add(command);
+    }
+    
+    @Override
+    public void execute() {
+        for (EditorCommand command : commands) {
+            command.execute();
+        }
+    }
+    
+    @Override
+    public void undo() {
+        // Desfaz na ordem reversa
+        for (int i = commands.size() - 1; i >= 0; i--) {
+            commands.get(i).undo();
+        }
+    }
+    
+    @Override
+    public String getDescription() {
+        return description + " (" + commands.size() + " operations)";
+    }
+}
+```
+
+### 5. Implementando um Editor Completo
+
+Sistema completo que integra todos os componentes:
+
+```java
+public class AdvancedTextEditor {
+    private final TextEditor editor;
+    private final EditorHistory history;
+    private final Stack<EditorCommand> commandHistory;
+    private boolean autoSave;
+    
+    public AdvancedTextEditor() {
+        this.editor = new TextEditor();
+        this.history = new EditorHistory();
+        this.commandHistory = new Stack<>();
+        this.autoSave = true;
+        
+        // Salva o estado inicial
+        saveCurrentState();
+        
+        // Configura observer para histórico
+        history.addObserver((canUndo, canRedo) -> {
+            System.out.println("History changed - Can Undo: " + canUndo + ", Can Redo: " + canRedo);
+        });
+    }
+    
+    // Executa um comando e salva o estado
+    public void executeCommand(EditorCommand command) {
+        command.execute();
+        commandHistory.push(command);
+        
+        if (autoSave) {
+            saveCurrentState();
+        }
+    }
+    
+    // Operações convenientes do editor
+    public void insertText(String text) {
+        executeCommand(new InsertTextCommand(editor, text));
+    }
+    
+    public void deleteText(int length) {
+        executeCommand(new DeleteTextCommand(editor, length));
+    }
+    
+    public void replaceAll(String oldText, String newText) {
+        MacroCommand macro = new MacroCommand("Replace All '" + oldText + "' with '" + newText + "'");
+        
+        String content = editor.getContent();
+        int index = 0;
+        
+        while ((index = content.indexOf(oldText, index)) != -1) {
+            final int currentIndex = index;
+            macro.addCommand(new EditorCommand() {
+                @Override
+                public void execute() {
+                    editor.moveCursor(currentIndex + oldText.length());
+                    editor.deleteText(oldText.length());
+                    editor.insertText(newText);
+                }
+                
+                @Override
+                public void undo() {
+                    editor.moveCursor(currentIndex + newText.length());
+                    editor.deleteText(newText.length());
+                    editor.insertText(oldText);
+                }
+                
+                @Override
+                public String getDescription() {
+                    return "Replace at position " + currentIndex;
+                }
+            });
+            
+            content = content.substring(0, index) + newText + content.substring(index + oldText.length());
+            index += newText.length();
+        }
+        
+        if (!macro.commands.isEmpty()) {
+            executeCommand(macro);
+        }
+    }
+    
+    // Salva o estado atual
+    public void saveCurrentState() {
+        TextMemento memento = editor.createMemento();
+        history.saveState(memento);
+    }
+    
+    // Desfaz a última operação
+    public boolean undo() {
+        TextMemento previousState = history.undo();
+        if (previousState != null) {
+            editor.restoreFromMemento(previousState);
+            return true;
+        }
+        return false;
+    }
+    
+    // Refaz a última operação desfeita
+    public boolean redo() {
+        TextMemento stateToRestore = history.redo();
+        if (stateToRestore != null) {
+            editor.restoreFromMemento(stateToRestore);
+            return true;
+        }
+        return false;
+    }
+    
+    // Cria um snapshot nomeado
+    public void createSnapshot(String name) {
+        System.out.println("Creating snapshot: " + name);
+        saveCurrentState();
+    }
+    
+    // Funcionalidades de gerenciamento
+    public void setAutoSave(boolean autoSave) {
+        this.autoSave = autoSave;
+    }
+    
+    public boolean canUndo() {
+        return history.canUndo();
+    }
+    
+    public boolean canRedo() {
+        return history.canRedo();
+    }
+    
+    public void clearHistory() {
+        history.clear();
+        commandHistory.clear();
+        saveCurrentState(); // Salva o estado atual como novo ponto de partida
+    }
+    
+    // Getters para acessar informações
+    public String getContent() {
+        return editor.getContent();
+    }
+    
+    public TextEditor getEditor() {
+        return editor;
+    }
+    
+    public EditorHistory getHistory() {
+        return history;
+    }
+    
+    public void showStats() {
+        System.out.println("=== EDITOR STATISTICS ===");
+        System.out.println("Content length: " + editor.getContent().length());
+        System.out.println("Cursor position: " + editor.getCursorPosition());
+        System.out.println("Modified: " + editor.isModified());
+        System.out.println("Commands executed: " + commandHistory.size());
+        System.out.println("Undo stack size: " + history.getUndoStackSize());
+        System.out.println("Redo stack size: " + history.getRedoStackSize());
+        System.out.println("Can undo: " + canUndo());
+        System.out.println("Can redo: " + canRedo());
+        System.out.println("========================");
+    }
+}
+```
+
+### 6. Criando o Cliente Demo
+
+Exemplo demonstrando o uso completo do sistema:
+
+```java
+public class MementoPatternDemo {
+    public static void main(String[] args) {
+        System.out.println("=== MEMENTO PATTERN - EDITOR DE TEXTO ===\n");
+        
+        AdvancedTextEditor editor = new AdvancedTextEditor();
+        
+        // Demonstração básica de inserção e undo/redo
+        System.out.println("1. OPERAÇÕES BÁSICAS:");
+        editor.insertText("Olá, ");
+        System.out.println("Após inserir 'Olá, ': " + editor.getContent());
+        
+        editor.insertText("mundo!");
+        System.out.println("Após inserir 'mundo!': " + editor.getContent());
+        
+        editor.insertText(" Como você está?");
+        System.out.println("Após inserir pergunta: " + editor.getContent());
+        
+        System.out.println("\n" + "=".repeat(50) + "\n");
+        
+        // Demonstração de undo
+        System.out.println("2. TESTANDO UNDO:");
+        editor.undo();
+        System.out.println("Após 1º undo: " + editor.getContent());
+        
+        editor.undo();
+        System.out.println("Após 2º undo: " + editor.getContent());
+        
+        editor.undo();
+        System.out.println("Após 3º undo: " + editor.getContent());
+        
+        System.out.println("\n" + "=".repeat(50) + "\n");
+        
+        // Demonstração de redo
+        System.out.println("3. TESTANDO REDO:");
+        editor.redo();
+        System.out.println("Após 1º redo: " + editor.getContent());
+        
+        editor.redo();
+        System.out.println("Após 2º redo: " + editor.getContent());
+        
+        System.out.println("\n" + "=".repeat(50) + "\n");
+        
+        // Demonstração de operações complexas
+        System.out.println("4. OPERAÇÕES COMPLEXAS:");
+        editor.insertText("\nEste é um teste do Memento Pattern.");
+        editor.createSnapshot("Após adicionar explicação");
+        
+        editor.insertText("\nVamos testar replace all.");
+        editor.createSnapshot("Antes do replace");
+        
+        // Replace all
+        editor.replaceAll("teste", "exemplo");
+        System.out.println("Após replace 'teste' -> 'exemplo': " + editor.getContent());
+        
+        System.out.println("\n" + "=".repeat(50) + "\n");
+        
+        // Demonstração de delete
+        System.out.println("5. TESTANDO DELETE:");
+        editor.deleteText(10); // Deleta últimos 10 caracteres
+        System.out.println("Após deletar 10 caracteres: " + editor.getContent());
+        
+        System.out.println("\n" + "=".repeat(50) + "\n");
+        
+        // Demonstração de múltiplas operações e histórico
+        System.out.println("6. TESTE DE HISTÓRICO EXTENSO:");
+        for (int i = 1; i <= 5; i++) {
+            editor.insertText(" [Inserção " + i + "]");
+        }
+        System.out.println("Após 5 inserções: " + editor.getContent());
+        
+        // Desfaz todas as inserções
+        System.out.println("\nDesfazendo todas as inserções:");
+        while (editor.canUndo()) {
+            editor.undo();
+            System.out.println("Undo -> Content: " + 
+                (editor.getContent().length() > 50 ? 
+                 editor.getContent().substring(0, 50) + "..." : 
+                 editor.getContent()));
+        }
+        
+        System.out.println("\n" + "=".repeat(50) + "\n");
+        
+        // Refaz algumas operações
+        System.out.println("7. REFAZENDO OPERAÇÕES:");
+        for (int i = 0; i < 3 && editor.canRedo(); i++) {
+            editor.redo();
+            System.out.println("Redo " + (i+1) + " -> Content: " + 
+                (editor.getContent().length() > 50 ? 
+                 editor.getContent().substring(0, 50) + "..." : 
+                 editor.getContent()));
+        }
+        
+        System.out.println("\n" + "=".repeat(50) + "\n");
+        
+        // Estatísticas finais
+        System.out.println("8. ESTATÍSTICAS FINAIS:");
+        editor.showStats();
+        
+        System.out.println("\n" + "=".repeat(50) + "\n");
+        
+        // Teste de limpeza de histórico
+        System.out.println("9. LIMPANDO HISTÓRICO:");
+        editor.clearHistory();
+        editor.showStats();
+        
+        System.out.println("\n=== FIM DA DEMONSTRAÇÃO ===");
+    }
+}
+```
+
+### Saída do Programa
+
+```
+=== MEMENTO PATTERN - EDITOR DE TEXTO ===
+
+History changed - Can Undo: false, Can Redo: false
+
+1. OPERAÇÕES BÁSICAS:
+History changed - Can Undo: true, Can Redo: false
+Após inserir 'Olá, ': Olá, 
+History changed - Can Undo: true, Can Redo: false
+Após inserir 'mundo!': Olá, mundo!
+History changed - Can Undo: true, Can Redo: false
+Após inserir pergunta: Olá, mundo! Como você está?
+
+==================================================
+
+2. TESTANDO UNDO:
+History changed - Can Undo: true, Can Redo: true
+Após 1º undo: Olá, mundo!
+History changed - Can Undo: true, Can Redo: true
+Após 2º undo: Olá, 
+History changed - Can Undo: false, Can Redo: true
+Após 3º undo: 
+
+==================================================
+
+3. TESTANDO REDO:
+History changed - Can Undo: true, Can Redo: true
+Após 1º redo: Olá, 
+History changed - Can Undo: true, Can Redo: true
+Após 2º redo: Olá, mundo!
+
+==================================================
+
+4. OPERAÇÕES COMPLEXAS:
+History changed - Can Undo: true, Can Redo: false
+Creating snapshot: Após adicionar explicação
+History changed - Can Undo: true, Can Redo: false
+Creating snapshot: Antes do replace
+History changed - Can Undo: true, Can Redo: false
+Após replace 'teste' -> 'exemplo': Olá, mundo!
+Este é um exemplo do Memento Pattern.
+Vamos testar replace all.
+
+==================================================
+
+5. TESTANDO DELETE:
+History changed - Can Undo: true, Can Redo: false
+Após deletar 10 caracteres: Olá, mundo!
+Este é um exemplo do Memento Pattern.
+Vamos testar replace 
+
+==================================================
+
+6. TESTE DE HISTÓRICO EXTENSO:
+History changed - Can Undo: true, Can Redo: false
+History changed - Can Undo: true, Can Redo: false
+History changed - Can Undo: true, Can Redo: false
+History changed - Can Undo: true, Can Redo: false
+History changed - Can Undo: true, Can Redo: false
+Após 5 inserções: Olá, mundo!
+Este é um exemplo do Memento Pattern.
+Vamos testar replace  [Inserção 1] [Inserção 2] [Inserção 3] [Inserção 4] [Inserção 5]
+
+Desfazendo todas as inserções:
+History changed - Can Undo: true, Can Redo: true
+Undo -> Content: Olá, mundo!
+Este é um exemplo do Memento Pattern...
+History changed - Can Undo: true, Can Redo: true
+Undo -> Content: Olá, mundo!
+Este é um exemplo do Memento Pattern...
+History changed - Can Undo: true, Can Redo: true
+Undo -> Content: Olá, mundo!
+Este é um exemplo do Memento Pattern...
+History changed - Can Undo: true, Can Redo: true
+Undo -> Content: Olá, mundo!
+Este é um exemplo do Memento Pattern...
+History changed - Can Undo: true, Can Redo: true
+Undo -> Content: Olá, mundo!
+Este é um exemplo do Memento Pattern...
+History changed - Can Undo: true, Can Redo: true
+Undo -> Content: Olá, mundo!
+Este é um exemplo do Memento Pattern...
+History changed - Can Undo: true, Can Redo: true
+Undo -> Content: Olá, mundo!
+Este é um exemplo do Memento Pattern...
+History changed - Can Undo: true, Can Redo: true
+Undo -> Content: Olá, mundo!
+Este é um exemplo do Memento Pattern...
+History changed - Can Undo: true, Can Redo: true
+Undo -> Content: Olá, mundo!
+Este é um exemplo do Memento Pattern...
+History changed - Can Undo: false, Can Redo: true
+Undo -> Content: 
+
+==================================================
+
+7. REFAZENDO OPERAÇÕES:
+History changed - Can Undo: true, Can Redo: true
+Redo 1 -> Content: Olá, 
+History changed - Can Undo: true, Can Redo: true
+Redo 2 -> Content: Olá, mundo!
+History changed - Can Undo: true, Can Redo: true
+Redo 3 -> Content: Olá, mundo!
+Este é um exemplo do Memento Pattern...
+
+==================================================
+
+8. ESTATÍSTICAS FINAIS:
+=== EDITOR STATISTICS ===
+Content length: 75
+Cursor position: 75
+Modified: true
+Commands executed: 11
+Undo stack size: 4
+Redo stack size: 6
+Can undo: true
+Can redo: true
+========================
+
+==================================================
+
+9. LIMPANDO HISTÓRICO:
+History changed - Can Undo: false, Can Redo: false
+=== EDITOR STATISTICS ===
+Content length: 75
+Cursor position: 75
+Modified: true
+Commands executed: 0
+Undo stack size: 1
+Redo stack size: 0
+Can undo: false
+Can redo: false
+========================
+
+=== FIM DA DEMONSTRAÇÃO ===
+```
+
+### Explicação do Código
+
+1. **Memento Imutável:** O `TextMemento` armazena o estado de forma imutável e com acesso controlado.
+
+2. **Originator Completo:** O `TextEditor` oferece operações completas de edição e métodos para criar/restaurar mementos.
+
+3. **Caretaker Inteligente:** O `EditorHistory` gerencia pilhas de undo/redo com limite de tamanho e padrão Observer.
+
+4. **Integração com Command Pattern:** Demonstra como Memento e Command podem trabalhar juntos para funcionalidades avançadas.
+
+5. **Operações Complexas:** Suporte a macros, replace all e operações compostas.
+
+---
+
+## Vantagens do Memento Pattern
+
+1. **Preservação do Encapsulamento:** Permite capturar estado sem expor estrutura interna dos objetos.
+
+2. **Simplicidade:** Interface simples para salvar e restaurar estados de objetos.
+
+3. **Funcionalidades Avançadas:** Base para implementar undo/redo, checkpoints e versionamento.
+
+4. **Flexibilidade:** Pode ser usado com diferentes tipos de objetos e estados.
+
+5. **Segurança:** Estados são armazenados de forma imutável, evitando modificações acidentais.
+
+6. **Histórico Completo:** Permite manter histórico completo de mudanças para auditoria.
+
+---
+
+## Desvantagens do Memento Pattern
+
+1. **Uso de Memória:** Pode consumir muita memória se os estados forem grandes ou se houver muitos mementos.
+
+2. **Performance:** Criação e restauração de mementos pode ser custosa para objetos complexos.
+
+3. **Complexidade:** Adiciona complexidade ao código, especialmente com múltiplos tipos de estado.
+
+4. **Garbage Collection:** Grande número de mementos pode impactar o garbage collector.
+
+5. **Sincronização:** Em ambientes multi-thread, pode requerer sincronização adicional.
+
+---
+
+## Quando evitar o Memento Pattern?
+
+- Quando o estado dos objetos é muito grande e seria custoso de armazenar.
+- Para aplicações com restrições severas de memória.
+- Quando os objetos mudam de estado muito frequentemente.
+- Se o custo de criar/restaurar mementos é maior que o benefício.
+- Para sistemas simples onde undo/redo não é necessário.
+- Quando apenas algumas propriedades específicas precisam ser restauradas (considere usar State Pattern).
+
+---
+
+## Padrões Relacionados
+
+- **Command Pattern:** Frequentemente usado junto com Memento para implementar undo/redo de comandos.
+- **Prototype Pattern:** Ambos fazem cópias de objetos, mas Prototype clona o objeto todo enquanto Memento captura apenas o estado.
+- **State Pattern:** Ambos lidam com estados de objetos, mas State muda comportamento enquanto Memento preserva estados.
+- **Observer Pattern:** Pode ser usado para notificar sobre mudanças no histórico de mementos.
+
+---
+
+## Conclusão
+
+O **Memento Pattern** é essencial para aplicações que precisam de funcionalidades de undo/redo, versionamento ou backup de estado. Ele oferece uma forma elegante de capturar e restaurar estados de objetos sem violar o encapsulamento, proporcionando flexibilidade e controle sobre o histórico de mudanças.
+
+A chave para o sucesso na implementação do Memento Pattern está em balancear funcionalidade com performance, gerenciando adequadamente o uso de memória e considerando a frequência de criação de mementos. Quando bem implementado, o padrão pode significativamente melhorar a experiência do usuário e a robustez da aplicação.
+
+Seja para implementar editores de texto, aplicações de design gráfico, jogos com sistema de save/load, ou qualquer sistema que requer reversão de operações, o Memento Pattern oferece uma base sólida e confiável para gerenciamento de estado.
+
+---
+
+Gostou deste post? Continue acompanhando para mais conteúdos sobre padrões de design e desenvolvimento em **Java**!
