@@ -1,0 +1,687 @@
+---
+title: "Mediator Pattern em Java: Centralizando Comunicação entre Objetos"
+description: "Aprenda como implementar o Mediator Pattern em Java para desacoplar objetos que precisam se comunicar. Descubra como este padrão comportamental pode simplificar interações complexas e melhorar a manutenibilidade do código através de um exemplo prático de sistema de chat."
+date: Jul 14 2025
+---
+
+## Introdução
+
+O **Mediator Pattern** (Padrão Mediador) é um padrão de design comportamental que define como um conjunto de objetos interage entre si. Em vez de objetos se referirem diretamente uns aos outros, eles se comunicam através de um objeto mediador centralizado. Este padrão promove o baixo acoplamento ao impedir que objetos se refiram explicitamente uns aos outros, e permite variar suas interações de forma independente.
+
+Neste post, exploraremos o conceito do Mediator Pattern, suas vantagens e como implementá-lo em Java com um exemplo prático de sistema de chat que demonstra como diferentes tipos de usuários se comunicam através de uma sala de bate-papo centralizada.
+
+---
+
+## O que é o Mediator Pattern?
+
+O Mediator Pattern resolve o problema de comunicação complexa entre múltiplos objetos. Quando objetos precisam interagir diretamente uns com os outros, isso pode resultar em um sistema fortemente acoplado e difícil de manter. O padrão introduz um mediador que encapsula como esses objetos interagem.
+
+**Principais componentes:**
+
+1. **Mediator:** Interface que define o contrato para comunicação entre componentes.
+2. **ConcreteMediator:** Implementação específica do mediador que coordena a comunicação entre objetos.
+3. **Colleague:** Interface ou classe base para objetos que se comunicam através do mediador.
+4. **ConcreteColleague:** Implementações específicas de objetos que interagem através do mediador.
+
+**Características principais:**
+
+- **Centralização da Comunicação:** Toda comunicação entre objetos passa pelo mediador.
+- **Baixo Acoplamento:** Objetos não precisam conhecer uns aos outros diretamente.
+- **Reutilização:** Mediadores podem ser reutilizados em diferentes contextos.
+- **Controle Centralizado:** O comportamento das interações pode ser modificado alterando apenas o mediador.
+
+---
+
+## Quando usar o Mediator Pattern?
+
+- Quando um conjunto de objetos se comunica de formas bem definidas mas complexas, resultando em interdependências difíceis de entender.
+- Para reutilizar um objeto, mas ele é difícil de usar porque se refere e se comunica com muitos outros objetos.
+- Quando um comportamento distribuído entre várias classes deve ser customizável sem muita herança.
+- Quando você quer centralizar lógica complexa de comunicação em um lugar.
+- Para implementar workflows ou processos que envolvem múltiplos objetos interagindo.
+- Quando você precisa de um ponto central para controlar e monitorar comunicações.
+
+---
+
+## Exemplo Prático em Java
+
+Vamos implementar um sistema de chat online onde diferentes tipos de usuários (usuários comuns, moderadores e administradores) se comunicam através de salas de chat. Este exemplo demonstra como o Mediator Pattern pode gerenciar comunicações complexas:
+
+### 1. Definindo a Interface Mediator
+
+A interface que define como os usuários se comunicam através da sala de chat:
+
+```java
+public interface ChatMediator {
+    void sendMessage(String message, User user);
+    void addUser(User user);
+    void removeUser(User user);
+    void notifyUsers(String message, User sender);
+    void sendPrivateMessage(String message, User sender, String targetUsername);
+    void broadcastSystemMessage(String message);
+}
+```
+
+### 2. Implementando a Classe Base User
+
+Classe abstrata que representa um usuário do sistema de chat:
+
+```java
+public abstract class User {
+    protected ChatMediator mediator;
+    protected String name;
+    protected String userType;
+    
+    public User(ChatMediator mediator, String name, String userType) {
+        this.mediator = mediator;
+        this.name = name;
+        this.userType = userType;
+    }
+    
+    public abstract void send(String message);
+    public abstract void receive(String message);
+    public abstract void receivePrivate(String message, User sender);
+    public abstract void receiveSystemMessage(String message);
+    
+    public String getName() {
+        return name;
+    }
+    
+    public String getUserType() {
+        return userType;
+    }
+    
+    @Override
+    public String toString() {
+        return "[" + userType + "] " + name;
+    }
+}
+```
+
+### 3. Implementando Tipos Específicos de Usuários
+
+Diferentes tipos de usuários com comportamentos específicos:
+
+```java
+// Usuário comum
+public class RegularUser extends User {
+    
+    public RegularUser(ChatMediator mediator, String name) {
+        super(mediator, name, "USER");
+    }
+    
+    @Override
+    public void send(String message) {
+        System.out.println(this + " enviando: " + message);
+        mediator.sendMessage(message, this);
+    }
+    
+    @Override
+    public void receive(String message) {
+        System.out.println(this + " recebeu: " + message);
+    }
+    
+    @Override
+    public void receivePrivate(String message, User sender) {
+        System.out.println(this + " recebeu mensagem privada de " + sender.getName() + ": " + message);
+    }
+    
+    @Override
+    public void receiveSystemMessage(String message) {
+        System.out.println(this + " [SISTEMA]: " + message);
+    }
+}
+
+// Moderador
+public class Moderator extends User {
+    
+    public Moderator(ChatMediator mediator, String name) {
+        super(mediator, name, "MOD");
+    }
+    
+    @Override
+    public void send(String message) {
+        System.out.println(this + " enviando: " + message);
+        mediator.sendMessage("[MOD] " + message, this);
+    }
+    
+    @Override
+    public void receive(String message) {
+        System.out.println(this + " recebeu: " + message);
+    }
+    
+    @Override
+    public void receivePrivate(String message, User sender) {
+        System.out.println(this + " recebeu mensagem privada de " + sender.getName() + ": " + message);
+    }
+    
+    @Override
+    public void receiveSystemMessage(String message) {
+        System.out.println(this + " [SISTEMA]: " + message);
+    }
+    
+    public void kickUser(String username) {
+        System.out.println(this + " tentando expulsar usuário: " + username);
+        mediator.broadcastSystemMessage("Moderador " + this.name + " expulsou " + username + " da sala.");
+    }
+    
+    public void muteUser(String username) {
+        System.out.println(this + " silenciou usuário: " + username);
+        mediator.broadcastSystemMessage("Usuário " + username + " foi silenciado por " + this.name);
+    }
+}
+
+// Administrador
+public class Administrator extends User {
+    
+    public Administrator(ChatMediator mediator, String name) {
+        super(mediator, name, "ADMIN");
+    }
+    
+    @Override
+    public void send(String message) {
+        System.out.println(this + " enviando: " + message);
+        mediator.sendMessage("[ADMIN] " + message, this);
+    }
+    
+    @Override
+    public void receive(String message) {
+        System.out.println(this + " recebeu: " + message);
+    }
+    
+    @Override
+    public void receivePrivate(String message, User sender) {
+        System.out.println(this + " recebeu mensagem privada de " + sender.getName() + ": " + message);
+    }
+    
+    @Override
+    public void receiveSystemMessage(String message) {
+        System.out.println(this + " [SISTEMA]: " + message);
+    }
+    
+    public void banUser(String username) {
+        System.out.println(this + " baniu usuário: " + username);
+        mediator.broadcastSystemMessage("USUÁRIO " + username + " FOI BANIDO PERMANENTEMENTE!");
+    }
+    
+    public void createAnnouncement(String announcement) {
+        System.out.println(this + " criando anúncio: " + announcement);
+        mediator.broadcastSystemMessage("ANÚNCIO: " + announcement);
+    }
+}
+```
+
+### 4. Implementando o ConcreteMediator
+
+A sala de chat que gerencia toda a comunicação entre usuários:
+
+```java
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+public class ChatRoom implements ChatMediator {
+    private List<User> users;
+    private String roomName;
+    private int messageCount;
+    private List<String> messageHistory;
+    
+    public ChatRoom(String roomName) {
+        this.roomName = roomName;
+        this.users = new ArrayList<>();
+        this.messageCount = 0;
+        this.messageHistory = new ArrayList<>();
+    }
+    
+    @Override
+    public void addUser(User user) {
+        users.add(user);
+        String joinMessage = user.getName() + " entrou na sala " + roomName;
+        System.out.println(">>> " + joinMessage);
+        broadcastSystemMessage(joinMessage);
+    }
+    
+    @Override
+    public void removeUser(User user) {
+        users.remove(user);
+        String leaveMessage = user.getName() + " saiu da sala " + roomName;
+        System.out.println(">>> " + leaveMessage);
+        broadcastSystemMessage(leaveMessage);
+    }
+    
+    @Override
+    public void sendMessage(String message, User sender) {
+        messageCount++;
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
+        String formattedMessage = "[" + timestamp + "] " + sender.getName() + ": " + message;
+        
+        // Adiciona ao histórico
+        messageHistory.add(formattedMessage);
+        
+        // Envia para todos os usuários exceto o remetente
+        notifyUsers(formattedMessage, sender);
+    }
+    
+    @Override
+    public void notifyUsers(String message, User sender) {
+        for (User user : users) {
+            if (user != sender) {
+                user.receive(message);
+            }
+        }
+    }
+    
+    @Override
+    public void sendPrivateMessage(String message, User sender, String targetUsername) {
+        Optional<User> targetUser = users.stream()
+            .filter(user -> user.getName().equalsIgnoreCase(targetUsername))
+            .findFirst();
+            
+        if (targetUser.isPresent()) {
+            targetUser.get().receivePrivate(message, sender);
+            System.out.println(sender + " enviou mensagem privada para " + targetUsername);
+        } else {
+            sender.receiveSystemMessage("Usuário '" + targetUsername + "' não encontrado na sala.");
+        }
+    }
+    
+    @Override
+    public void broadcastSystemMessage(String message) {
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
+        String systemMessage = "[" + timestamp + "] [SISTEMA] " + message;
+        
+        for (User user : users) {
+            user.receiveSystemMessage(systemMessage);
+        }
+        
+        messageHistory.add(systemMessage);
+    }
+    
+    public void showRoomStats() {
+        System.out.println("\n=== ESTATÍSTICAS DA SALA " + roomName + " ===");
+        System.out.println("Usuários online: " + users.size());
+        System.out.println("Mensagens enviadas: " + messageCount);
+        System.out.println("Usuários na sala:");
+        
+        for (User user : users) {
+            System.out.println("  - " + user);
+        }
+        System.out.println("==================================\n");
+    }
+    
+    public void showMessageHistory(int lastMessages) {
+        System.out.println("\n=== HISTÓRICO DE MENSAGENS ===");
+        int start = Math.max(0, messageHistory.size() - lastMessages);
+        
+        for (int i = start; i < messageHistory.size(); i++) {
+            System.out.println(messageHistory.get(i));
+        }
+        System.out.println("=============================\n");
+    }
+    
+    public String getRoomName() {
+        return roomName;
+    }
+    
+    public int getUserCount() {
+        return users.size();
+    }
+}
+```
+
+### 5. Implementando Funcionalidades Avançadas
+
+Vamos adicionar um sistema de comandos para demonstrar funcionalidades mais complexas:
+
+```java
+public class ChatCommandProcessor {
+    private ChatMediator mediator;
+    
+    public ChatCommandProcessor(ChatMediator mediator) {
+        this.mediator = mediator;
+    }
+    
+    public void processCommand(String command, User user) {
+        String[] parts = command.substring(1).split(" ", 2); // Remove o '/' do início
+        String cmd = parts[0].toLowerCase();
+        
+        switch (cmd) {
+            case "pm":
+            case "private":
+                if (parts.length > 1) {
+                    String[] pmParts = parts[1].split(" ", 2);
+                    if (pmParts.length == 2) {
+                        mediator.sendPrivateMessage(pmParts[1], user, pmParts[0]);
+                    }
+                }
+                break;
+                
+            case "kick":
+                if (user instanceof Moderator && parts.length > 1) {
+                    ((Moderator) user).kickUser(parts[1]);
+                }
+                break;
+                
+            case "mute":
+                if (user instanceof Moderator && parts.length > 1) {
+                    ((Moderator) user).muteUser(parts[1]);
+                }
+                break;
+                
+            case "ban":
+                if (user instanceof Administrator && parts.length > 1) {
+                    ((Administrator) user).banUser(parts[1]);
+                }
+                break;
+                
+            case "announce":
+                if (user instanceof Administrator && parts.length > 1) {
+                    ((Administrator) user).createAnnouncement(parts[1]);
+                }
+                break;
+                
+            case "help":
+                showHelp(user);
+                break;
+                
+            default:
+                user.receiveSystemMessage("Comando desconhecido: " + cmd);
+        }
+    }
+    
+    private void showHelp(User user) {
+        user.receiveSystemMessage("Comandos disponíveis:");
+        user.receiveSystemMessage("/pm <usuário> <mensagem> - Mensagem privada");
+        
+        if (user instanceof Moderator) {
+            user.receiveSystemMessage("/kick <usuário> - Expulsar usuário");
+            user.receiveSystemMessage("/mute <usuário> - Silenciar usuário");
+        }
+        
+        if (user instanceof Administrator) {
+            user.receiveSystemMessage("/ban <usuário> - Banir usuário");
+            user.receiveSystemMessage("/announce <mensagem> - Criar anúncio");
+        }
+    }
+}
+```
+
+### 6. Criando o Cliente
+
+Exemplo demonstrando o uso completo do sistema de chat:
+
+```java
+public class ChatSystemDemo {
+    public static void main(String[] args) {
+        System.out.println("=== SISTEMA DE CHAT - MEDIATOR PATTERN ===\n");
+        
+        // Criando a sala de chat (Mediator)
+        ChatRoom salaGeral = new ChatRoom("Sala Geral");
+        ChatCommandProcessor commandProcessor = new ChatCommandProcessor(salaGeral);
+        
+        // Criando usuários
+        User alice = new RegularUser(salaGeral, "Alice");
+        User bob = new RegularUser(salaGeral, "Bob");
+        User carol = new Moderator(salaGeral, "Carol");
+        User admin = new Administrator(salaGeral, "Admin");
+        
+        // Adicionando usuários à sala
+        salaGeral.addUser(alice);
+        salaGeral.addUser(bob);
+        salaGeral.addUser(carol);
+        salaGeral.addUser(admin);
+        
+        System.out.println("\n" + "=".repeat(50) + "\n");
+        
+        // Demonstração de mensagens públicas
+        System.out.println("1. MENSAGENS PÚBLICAS:");
+        alice.send("Olá pessoal!");
+        bob.send("Oi Alice! Como você está?");
+        carol.send("Bem-vindos à sala!");
+        
+        System.out.println("\n" + "=".repeat(50) + "\n");
+        
+        // Demonstração de mensagem privada
+        System.out.println("2. MENSAGEM PRIVADA:");
+        salaGeral.sendPrivateMessage("Você pode me ajudar com algo?", alice, "Carol");
+        
+        System.out.println("\n" + "=".repeat(50) + "\n");
+        
+        // Demonstração de ações de moderação
+        System.out.println("3. AÇÕES DE MODERAÇÃO:");
+        if (carol instanceof Moderator) {
+            ((Moderator) carol).muteUser("Bob");
+            ((Moderator) carol).kickUser("SpamUser");
+        }
+        
+        System.out.println("\n" + "=".repeat(50) + "\n");
+        
+        // Demonstração de ações administrativas
+        System.out.println("4. AÇÕES ADMINISTRATIVAS:");
+        if (admin instanceof Administrator) {
+            ((Administrator) admin).createAnnouncement("Servidor será reiniciado em 10 minutos!");
+            ((Administrator) admin).banUser("TrollingUser");
+        }
+        
+        System.out.println("\n" + "=".repeat(50) + "\n");
+        
+        // Demonstração de comandos
+        System.out.println("5. SISTEMA DE COMANDOS:");
+        commandProcessor.processCommand("/help", alice);
+        commandProcessor.processCommand("/pm Bob Oi, tudo bem?", alice);
+        commandProcessor.processCommand("/announce Novo evento disponível!", admin);
+        
+        System.out.println("\n" + "=".repeat(50) + "\n");
+        
+        // Estatísticas da sala
+        salaGeral.showRoomStats();
+        
+        // Histórico de mensagens
+        salaGeral.showMessageHistory(5);
+        
+        // Usuário saindo
+        System.out.println("6. USUÁRIO SAINDO:");
+        salaGeral.removeUser(bob);
+        
+        // Estatísticas finais
+        salaGeral.showRoomStats();
+        
+        System.out.println("=== FIM DA DEMONSTRAÇÃO ===");
+    }
+}
+```
+
+### Saída do Programa
+
+```
+=== SISTEMA DE CHAT - MEDIATOR PATTERN ===
+
+>>> Alice entrou na sala Sala Geral
+[USER] Alice [SISTEMA]: [15:30] [SISTEMA] Alice entrou na sala Sala Geral
+>>> Bob entrou na sala Sala Geral
+[USER] Alice [SISTEMA]: [15:30] [SISTEMA] Bob entrou na sala Sala Geral
+[USER] Bob [SISTEMA]: [15:30] [SISTEMA] Bob entrou na sala Sala Geral
+>>> Carol entrou na sala Sala Geral
+[USER] Alice [SISTEMA]: [15:30] [SISTEMA] Carol entrou na sala Sala Geral
+[USER] Bob [SISTEMA]: [15:30] [SISTEMA] Carol entrou na sala Sala Geral
+[MOD] Carol [SISTEMA]: [15:30] [SISTEMA] Carol entrou na sala Sala Geral
+>>> Admin entrou na sala Sala Geral
+[USER] Alice [SISTEMA]: [15:30] [SISTEMA] Admin entrou na sala Sala Geral
+[USER] Bob [SISTEMA]: [15:30] [SISTEMA] Admin entrou na sala Sala Geral
+[MOD] Carol [SISTEMA]: [15:30] [SISTEMA] Admin entrou na sala Sala Geral
+[ADMIN] Admin [SISTEMA]: [15:30] [SISTEMA] Admin entrou na sala Sala Geral
+
+==================================================
+
+1. MENSAGENS PÚBLICAS:
+[USER] Alice enviando: Olá pessoal!
+[USER] Bob recebeu: [15:30] Alice: Olá pessoal!
+[MOD] Carol recebeu: [15:30] Alice: Olá pessoal!
+[ADMIN] Admin recebeu: [15:30] Alice: Olá pessoal!
+[USER] Bob enviando: Oi Alice! Como você está?
+[USER] Alice recebeu: [15:30] Bob: Oi Alice! Como você está?
+[MOD] Carol recebeu: [15:30] Bob: Oi Alice! Como você está?
+[ADMIN] Admin recebeu: [15:30] Bob: Oi Alice! Como você está?
+[MOD] Carol enviando: Bem-vindos à sala!
+[USER] Alice recebeu: [15:30] Carol: [MOD] Bem-vindos à sala!
+[USER] Bob recebeu: [15:30] Carol: [MOD] Bem-vindos à sala!
+[ADMIN] Admin recebeu: [15:30] Carol: [MOD] Bem-vindos à sala!
+
+==================================================
+
+2. MENSAGEM PRIVADA:
+[USER] Alice enviou mensagem privada para Carol
+[MOD] Carol recebeu mensagem privada de Alice: Você pode me ajudar com algo?
+
+==================================================
+
+3. AÇÕES DE MODERAÇÃO:
+[MOD] Carol silenciou usuário: Bob
+[USER] Alice [SISTEMA]: [15:30] [SISTEMA] Usuário Bob foi silenciado por Carol
+[USER] Bob [SISTEMA]: [15:30] [SISTEMA] Usuário Bob foi silenciado por Carol
+[MOD] Carol [SISTEMA]: [15:30] [SISTEMA] Usuário Bob foi silenciado por Carol
+[ADMIN] Admin [SISTEMA]: [15:30] [SISTEMA] Usuário Bob foi silenciado por Carol
+[MOD] Carol tentando expulsar usuário: SpamUser
+[USER] Alice [SISTEMA]: [15:30] [SISTEMA] Moderador Carol expulsou SpamUser da sala.
+[USER] Bob [SISTEMA]: [15:30] [SISTEMA] Moderador Carol expulsou SpamUser da sala.
+[MOD] Carol [SISTEMA]: [15:30] [SISTEMA] Moderador Carol expulsou SpamUser da sala.
+[ADMIN] Admin [SISTEMA]: [15:30] [SISTEMA] Moderador Carol expulsou SpamUser da sala.
+
+==================================================
+
+4. AÇÕES ADMINISTRATIVAS:
+[ADMIN] Admin criando anúncio: Servidor será reiniciado em 10 minutos!
+[USER] Alice [SISTEMA]: [15:30] [SISTEMA] ANÚNCIO: Servidor será reiniciado em 10 minutos!
+[USER] Bob [SISTEMA]: [15:30] [SISTEMA] ANÚNCIO: Servidor será reiniciado em 10 minutos!
+[MOD] Carol [SISTEMA]: [15:30] [SISTEMA] ANÚNCIO: Servidor será reiniciado em 10 minutos!
+[ADMIN] Admin [SISTEMA]: [15:30] [SISTEMA] ANÚNCIO: Servidor será reiniciado em 10 minutos!
+[ADMIN] Admin baniu usuário: TrollingUser
+[USER] Alice [SISTEMA]: [15:30] [SISTEMA] USUÁRIO TrollingUser FOI BANIDO PERMANENTEMENTE!
+[USER] Bob [SISTEMA]: [15:30] [SISTEMA] USUÁRIO TrollingUser FOI BANIDO PERMANENTEMENTE!
+[MOD] Carol [SISTEMA]: [15:30] [SISTEMA] USUÁRIO TrollingUser FOI BANIDO PERMANENTEMENTE!
+[ADMIN] Admin [SISTEMA]: [15:30] [SISTEMA] USUÁRIO TrollingUser FOI BANIDO PERMANENTEMENTE!
+
+==================================================
+
+5. SISTEMA DE COMANDOS:
+[USER] Alice [SISTEMA]: Comandos disponíveis:
+[USER] Alice [SISTEMA]: /pm <usuário> <mensagem> - Mensagem privada
+[USER] Alice enviou mensagem privada para Bob
+[USER] Bob recebeu mensagem privada de Alice: Oi, tudo bem?
+[ADMIN] Admin criando anúncio: Novo evento disponível!
+[USER] Alice [SISTEMA]: [15:30] [SISTEMA] ANÚNCIO: Novo evento disponível!
+[USER] Bob [SISTEMA]: [15:30] [SISTEMA] ANÚNCIO: Novo evento disponível!
+[MOD] Carol [SISTEMA]: [15:30] [SISTEMA] ANÚNCIO: Novo evento disponível!
+[ADMIN] Admin [SISTEMA]: [15:30] [SISTEMA] ANÚNCIO: Novo evento disponível!
+
+==================================================
+
+=== ESTATÍSTICAS DA SALA Sala Geral ===
+Usuários online: 4
+Mensagens enviadas: 3
+Usuários na sala:
+  - [USER] Alice
+  - [USER] Bob
+  - [MOD] Carol
+  - [ADMIN] Admin
+==================================
+
+=== HISTÓRICO DE MENSAGENS ===
+[15:30] [SISTEMA] ANÚNCIO: Servidor será reiniciado em 10 minutos!
+[15:30] [SISTEMA] USUÁRIO TrollingUser FOI BANIDO PERMANENTEMENTE!
+[15:30] [SISTEMA] ANÚNCIO: Novo evento disponível!
+=============================
+
+6. USUÁRIO SAINDO:
+>>> Bob saiu da sala Sala Geral
+[USER] Alice [SISTEMA]: [15:30] [SISTEMA] Bob saiu da sala Sala Geral
+[MOD] Carol [SISTEMA]: [15:30] [SISTEMA] Bob saiu da sala Sala Geral
+[ADMIN] Admin [SISTEMA]: [15:30] [SISTEMA] Bob saiu da sala Sala Geral
+
+=== ESTATÍSTICAS DA SALA Sala Geral ===
+Usuários online: 3
+Mensagens enviadas: 3
+Usuários na sala:
+  - [USER] Alice
+  - [MOD] Carol
+  - [ADMIN] Admin
+==================================
+
+=== FIM DA DEMONSTRAÇÃO ===
+```
+
+### Explicação do Código
+
+1. **Centralização da Comunicação:** Todas as mensagens passam pela `ChatRoom` (mediador), que decide como distribuí-las.
+
+2. **Baixo Acoplamento:** Os usuários não conhecem uns aos outros diretamente; eles apenas conhecem o mediador.
+
+3. **Funcionalidades Específicas:** Diferentes tipos de usuários têm diferentes capacidades, mas todas são coordenadas pelo mediador.
+
+4. **Extensibilidade:** Novos tipos de usuários ou funcionalidades podem ser adicionados facilmente.
+
+---
+
+## Vantagens do Mediator Pattern
+
+1. **Desacoplamento:** Reduz as dependências entre objetos comunicantes, promovendo baixo acoplamento.
+
+2. **Centralização da Lógica:** A lógica de comunicação complexa fica centralizada no mediador, facilitando manutenção.
+
+3. **Reutilização:** Objetos individuais podem ser reutilizados mais facilmente, pois não dependem uns dos outros.
+
+4. **Flexibilidade:** O comportamento das interações pode ser modificado alterando apenas o mediador.
+
+5. **Facilita Testes:** É mais fácil testar objetos isoladamente, mockando apenas o mediador.
+
+6. **Controle Centralizado:** Permite implementar políticas, validações e logs de forma centralizada.
+
+---
+
+## Desvantagens do Mediator Pattern
+
+1. **Complexidade do Mediador:** O mediador pode se tornar complexo e difícil de manter conforme cresce.
+
+2. **Ponto Único de Falha:** Se o mediador falha, toda a comunicação é interrompida.
+
+3. **Performance:** Pode introduzir overhead, especialmente se as comunicações forem simples.
+
+4. **God Object:** O mediador pode se tornar um "God Object" se acumular muitas responsabilidades.
+
+5. **Debugging Difícil:** Pode ser mais difícil rastrear o fluxo de comunicação através do mediador.
+
+---
+
+## Quando evitar o Mediator Pattern?
+
+- Quando as interações entre objetos são simples e diretas.
+- Se apenas dois objetos precisam se comunicar (use referência direta).
+- Quando a performance é crítica e o overhead do mediador é inaceitável.
+- Para sistemas pequenos onde o padrão adicionaria complexidade desnecessária.
+- Quando as interações mudam frequentemente e de forma imprevisível.
+- Se os objetos precisam de comunicação em tempo real com latência mínima.
+
+---
+
+## Padrões Relacionados
+
+- **Observer Pattern:** Ambos lidam com comunicação, mas Observer é para notificações one-to-many, enquanto Mediator é para comunicação many-to-many.
+- **Command Pattern:** Pode ser usado dentro do mediador para encapsular solicitações como objetos.
+- **Chain of Responsibility:** Ambos evitam acoplamento direto, mas Chain passa responsabilidade sequencialmente.
+- **Facade Pattern:** Ambos fornecem interface simplificada, mas Facade não encapsula comunicação entre objetos.
+
+---
+
+## Conclusão
+
+O **Mediator Pattern** é uma solução elegante para gerenciar comunicações complexas entre múltiplos objetos. Ele promove baixo acoplamento, centraliza a lógica de comunicação e torna o sistema mais flexível e maintível. É especialmente útil em sistemas onde objetos precisam interagir de formas complexas, como interfaces gráficas, sistemas de chat, workflows e orquestradores de serviços.
+
+A chave para o sucesso na implementação do Mediator Pattern está em manter o mediador focado na coordenação de comunicação, evitando que ele se torne um monólito com muitas responsabilidades. Quando bem implementado, o padrão pode simplificar significativamente a arquitetura de sistemas complexos, facilitando tanto o desenvolvimento quanto a manutenção.
+
+Seja para implementar sistemas de chat, coordenar componentes de interface gráfica, ou orquestrar serviços em uma arquitetura de microserviços, o Mediator Pattern oferece uma base sólida para comunicação desacoplada e controlada.
+
+---
+
+Gostou deste post? Continue acompanhando para mais conteúdos sobre padrões de design e desenvolvimento em **Java**!
