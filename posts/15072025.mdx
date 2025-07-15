@@ -1,0 +1,1344 @@
+---
+title: "Escalando Leitura e Escrita em Aplicações Java com Spring Boot"
+description: "Aprenda como escalar operações de leitura e escrita em aplicações Java usando Spring Boot, configuração master-slave, connection pooling e read replicas com PostgreSQL e Docker para testes práticos."
+date: Jul 15 2025
+---
+
+## Introdução
+
+À medida que aplicações Java crescem e precisam lidar com mais usuários simultâneos, um dos principais gargalos que surgem é o banco de dados. **Escalar leitura e escrita** torna-se fundamental para manter a performance e disponibilidade da aplicação. O Spring Boot oferece ferramentas poderosas para implementar estratégias de scaling de banco de dados de forma elegante e eficiente.
+
+Neste post, exploraremos técnicas práticas para escalar operações de leitura e escrita em aplicações Spring Boot, incluindo configuração de **master-slave**, **connection pooling**, **read replicas** e **balanceamento de carga** no banco de dados. Todos os exemplos incluem configuração com Docker e PostgreSQL para que você possa testar localmente.
+
+---
+
+## O que é Scaling de Leitura e Escrita?
+
+**Scaling de leitura e escrita** refere-se às estratégias para distribuir a carga de operações de banco de dados entre múltiplas instâncias, otimizando performance e disponibilidade. As principais abordagens incluem:
+
+**Principais estratégias:**
+
+1. **Master-Slave (Read Replicas):** Um banco principal (master) para escritas e múltiplos bancos secundários (slaves) para leituras.
+2. **Connection Pooling:** Gerenciamento eficiente de conexões para otimizar recursos.
+3. **Read/Write Splitting:** Roteamento automático de operações baseado no tipo (leitura vs escrita).
+4. **Load Balancing:** Distribuição de carga entre múltiplas instâncias de banco.
+5. **Sharding:** Divisão horizontal dos dados entre múltiplos bancos.
+
+**Benefícios:**
+- Melhora significativa na performance de leitura
+- Redução da carga no banco principal
+- Maior disponibilidade e tolerância a falhas
+- Escalabilidade horizontal eficiente
+
+---
+
+## Quando usar Scaling de Banco de Dados?
+
+- Quando sua aplicação tem muito mais operações de leitura do que escrita (padrão comum: 80% leitura, 20% escrita).
+- Aplicações com alta concorrência que sofrem com gargalos de banco de dados.
+- Sistemas que precisam de alta disponibilidade e tolerância a falhas.
+- Quando o banco principal está sobrecarregado e afeta a performance geral.
+- Para distribuir geograficamente os dados (read replicas em diferentes regiões).
+
+---
+
+## Configuração do Ambiente com Docker
+
+Primeiro, vamos configurar um ambiente de teste com PostgreSQL master-slave usando Docker. Crie os seguintes arquivos:
+
+### 1. docker-compose.yml
+
+```yaml
+version: '3.8'
+
+services:
+  # PostgreSQL Master (Principal)
+  postgres-master:
+    image: postgres:15
+    container_name: postgres-master
+    environment:
+      POSTGRES_DB: scalingdb
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_REPLICATION_USER: replicator
+      POSTGRES_REPLICATION_PASSWORD: repl_password123
+    volumes:
+      - postgres_master_data:/var/lib/postgresql/data
+      - ./master-init.sql:/docker-entrypoint-initdb.d/master-init.sql
+      - ./postgresql-master.conf:/etc/postgresql/postgresql.conf
+    ports:
+      - "5432:5432"
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    networks:
+      - scaling-network
+
+  # PostgreSQL Slave (Read Replica)
+  postgres-slave:
+    image: postgres:15
+    container_name: postgres-slave
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      PGUSER: admin
+    volumes:
+      - postgres_slave_data:/var/lib/postgresql/data
+      - ./slave-init.sh:/docker-entrypoint-initdb.d/slave-init.sh
+      - ./postgresql-slave.conf:/etc/postgresql/postgresql.conf
+    ports:
+      - "5433:5432"
+    depends_on:
+      - postgres-master
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    networks:
+      - scaling-network
+
+  # Aplicação Spring Boot
+  spring-app:
+    build: .
+    container_name: scaling-spring-app
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_MASTER_URL: jdbc:postgresql://postgres-master:5432/scalingdb
+      DB_SLAVE_URL: jdbc:postgresql://postgres-slave:5432/scalingdb
+      DB_USERNAME: admin
+      DB_PASSWORD: password123
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres-master
+      - postgres-slave
+    networks:
+      - scaling-network
+
+volumes:
+  postgres_master_data:
+  postgres_slave_data:
+
+networks:
+  scaling-network:
+    driver: bridge
+```
+
+### 2. Configuração do PostgreSQL Master
+
+Crie o arquivo `postgresql-master.conf`:
+
+```ini
+# postgresql-master.conf
+listen_addresses = '*'
+port = 5432
+max_connections = 200
+shared_buffers = 256MB
+effective_cache_size = 1GB
+
+# Configurações de Replicação
+wal_level = replica
+max_wal_senders = 3
+max_replication_slots = 3
+synchronous_commit = off
+synchronous_standby_names = ''
+
+# Configurações de Performance
+work_mem = 8MB
+maintenance_work_mem = 64MB
+checkpoint_completion_target = 0.9
+wal_buffers = 16MB
+default_statistics_target = 100
+```
+
+### 3. Script de Inicialização do Master
+
+Crie o arquivo `master-init.sql`:
+
+```sql
+-- master-init.sql
+-- Criar usuário de replicação
+CREATE USER replicator WITH REPLICATION ENCRYPTED PASSWORD 'repl_password123';
+
+-- Configurar pg_hba.conf para replicação
+-- Este comando deve ser executado no container após inicialização
+-- Criando tabelas de exemplo para testes
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(100) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS products (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    price DECIMAL(10,2) NOT NULL,
+    stock_quantity INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    total_amount DECIMAL(12,2) NOT NULL,
+    status VARCHAR(50) DEFAULT 'PENDING',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Inserir dados de exemplo
+INSERT INTO users (username, email) VALUES 
+('john_doe', 'john@example.com'),
+('jane_smith', 'jane@example.com'),
+('bob_wilson', 'bob@example.com');
+
+INSERT INTO products (name, description, price, stock_quantity) VALUES 
+('Laptop Dell XPS', 'High-performance laptop', 1299.99, 10),
+('Mouse Logitech', 'Wireless mouse', 29.99, 50),
+('Keyboard Mechanical', 'RGB mechanical keyboard', 89.99, 25);
+
+INSERT INTO orders (user_id, total_amount, status) VALUES 
+(1, 1329.98, 'COMPLETED'),
+(2, 29.99, 'PENDING'),
+(3, 119.98, 'PROCESSING');
+
+-- Criar índices para performance
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_products_name ON products(name);
+CREATE INDEX idx_orders_user_id ON orders(user_id);
+CREATE INDEX idx_orders_status ON orders(status);
+```
+
+### 4. Configuração do PostgreSQL Slave
+
+Crie o arquivo `postgresql-slave.conf`:
+
+```ini
+# postgresql-slave.conf
+listen_addresses = '*'
+port = 5432
+max_connections = 200
+shared_buffers = 256MB
+effective_cache_size = 1GB
+
+# Configurações de Standby
+hot_standby = on
+max_standby_streaming_delay = 30s
+max_standby_archive_delay = 30s
+
+# Performance para leituras
+work_mem = 8MB
+effective_cache_size = 2GB
+```
+
+### 5. Script de Inicialização do Slave
+
+Crie o arquivo `slave-init.sh`:
+
+```bash
+#!/bin/bash
+# slave-init.sh
+
+set -e
+
+# Aguarda o master estar disponível
+until pg_isready -h postgres-master -p 5432 -U admin; do
+  echo "Aguardando PostgreSQL master..."
+  sleep 2
+done
+
+# Remove dados existentes
+rm -rf /var/lib/postgresql/data/*
+
+# Faz backup do master
+pg_basebackup -h postgres-master -D /var/lib/postgresql/data -U replicator -v -P -W
+
+# Cria arquivo de configuração de standby
+cat << EOF > /var/lib/postgresql/data/postgresql.auto.conf
+primary_conninfo = 'host=postgres-master port=5432 user=replicator password=repl_password123'
+primary_slot_name = 'slave_slot'
+EOF
+
+# Cria arquivo standby.signal
+touch /var/lib/postgresql/data/standby.signal
+
+# Ajusta permissões
+chown -R postgres:postgres /var/lib/postgresql/data
+chmod 700 /var/lib/postgresql/data
+```
+
+---
+
+## Implementação Spring Boot
+
+### 1. Dependências Maven
+
+Adicione as dependências necessárias no `pom.xml`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.1.0</version>
+        <relativePath/>
+    </parent>
+    
+    <groupId>com.example</groupId>
+    <artifactId>database-scaling</artifactId>
+    <version>1.0.0</version>
+    <name>database-scaling</name>
+    <description>Database Scaling with Spring Boot</description>
+    
+    <properties>
+        <java.version>17</java.version>
+    </properties>
+    
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+    
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
+```
+
+### 2. Configuração de Múltiplos DataSources
+
+Arquivo `application.yml`:
+
+```yaml
+spring:
+  application:
+    name: database-scaling-demo
+  
+  # Configuração para desenvolvimento local
+  profiles:
+    active: local
+
+---
+# Profile para desenvolvimento local
+spring:
+  config:
+    activate:
+      on-profile: local
+  
+  datasource:
+    master:
+      jdbc-url: jdbc:postgresql://localhost:5432/scalingdb
+      username: admin
+      password: password123
+      driver-class-name: org.postgresql.Driver
+      hikari:
+        pool-name: MasterPool
+        maximum-pool-size: 20
+        minimum-idle: 5
+        connection-timeout: 30000
+        idle-timeout: 600000
+        max-lifetime: 1800000
+    
+    slave:
+      jdbc-url: jdbc:postgresql://localhost:5433/scalingdb
+      username: admin
+      password: password123
+      driver-class-name: org.postgresql.Driver
+      hikari:
+        pool-name: SlavePool
+        maximum-pool-size: 30
+        minimum-idle: 10
+        connection-timeout: 30000
+        idle-timeout: 600000
+        max-lifetime: 1800000
+        read-only: true
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+---
+# Profile para Docker
+spring:
+  config:
+    activate:
+      on-profile: docker
+  
+  datasource:
+    master:
+      jdbc-url: ${DB_MASTER_URL}
+      username: ${DB_USERNAME}
+      password: ${DB_PASSWORD}
+      driver-class-name: org.postgresql.Driver
+      hikari:
+        pool-name: MasterPool
+        maximum-pool-size: 20
+        minimum-idle: 5
+        connection-timeout: 30000
+        idle-timeout: 600000
+        max-lifetime: 1800000
+    
+    slave:
+      jdbc-url: ${DB_SLAVE_URL}
+      username: ${DB_USERNAME}
+      password: ${DB_PASSWORD}
+      driver-class-name: org.postgresql.Driver
+      hikari:
+        pool-name: SlavePool
+        maximum-pool-size: 30
+        minimum-idle: 10
+        connection-timeout: 30000
+        idle-timeout: 600000
+        max-lifetime: 1800000
+        read-only: true
+
+# Configurações de monitoramento
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+# Logging
+logging:
+  level:
+    com.example: DEBUG
+    org.springframework.jdbc.core: DEBUG
+    com.zaxxer.hikari: INFO
+```
+
+### 3. Configuração de DataSource
+
+```java
+package com.example.config;
+
+import com.zaxxer.hikari.HikariDataSource;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.orm.jpa.JpaTransactionManager;
+import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+import org.springframework.transaction.PlatformTransactionManager;
+
+import javax.sql.DataSource;
+import java.util.Properties;
+
+@Configuration
+@EnableJpaRepositories(
+    basePackages = "com.example.repository",
+    entityManagerFactoryRef = "masterEntityManagerFactory",
+    transactionManagerRef = "masterTransactionManager"
+)
+public class DatabaseConfig {
+
+    // Configuração Master DataSource
+    @Bean
+    @Primary
+    @ConfigurationProperties("spring.datasource.master")
+    public DataSourceProperties masterDataSourceProperties() {
+        return new DataSourceProperties();
+    }
+
+    @Bean
+    @Primary
+    @ConfigurationProperties("spring.datasource.master.hikari")
+    public DataSource masterDataSource(@Qualifier("masterDataSourceProperties") DataSourceProperties properties) {
+        return properties.initializeDataSourceBuilder()
+                .type(HikariDataSource.class)
+                .build();
+    }
+
+    // Configuração Slave DataSource
+    @Bean
+    @ConfigurationProperties("spring.datasource.slave")
+    public DataSourceProperties slaveDataSourceProperties() {
+        return new DataSourceProperties();
+    }
+
+    @Bean
+    @ConfigurationProperties("spring.datasource.slave.hikari")
+    public DataSource slaveDataSource(@Qualifier("slaveDataSourceProperties") DataSourceProperties properties) {
+        return properties.initializeDataSourceBuilder()
+                .type(HikariDataSource.class)
+                .build();
+    }
+
+    // EntityManagerFactory para Master
+    @Bean
+    @Primary
+    public LocalContainerEntityManagerFactoryBean masterEntityManagerFactory(
+            @Qualifier("masterDataSource") DataSource dataSource) {
+        
+        LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+        em.setDataSource(dataSource);
+        em.setPackagesToScan("com.example.entity");
+        em.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+        
+        Properties properties = new Properties();
+        properties.setProperty("hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect");
+        properties.setProperty("hibernate.hbm2ddl.auto", "validate");
+        properties.setProperty("hibernate.show_sql", "false");
+        properties.setProperty("hibernate.format_sql", "true");
+        em.setJpaProperties(properties);
+        
+        return em;
+    }
+
+    // EntityManagerFactory para Slave
+    @Bean
+    public LocalContainerEntityManagerFactoryBean slaveEntityManagerFactory(
+            @Qualifier("slaveDataSource") DataSource dataSource) {
+        
+        LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+        em.setDataSource(dataSource);
+        em.setPackagesToScan("com.example.entity");
+        em.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+        
+        Properties properties = new Properties();
+        properties.setProperty("hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect");
+        properties.setProperty("hibernate.hbm2ddl.auto", "validate");
+        properties.setProperty("hibernate.show_sql", "false");
+        properties.setProperty("hibernate.format_sql", "true");
+        em.setJpaProperties(properties);
+        
+        return em;
+    }
+
+    // Transaction Manager para Master
+    @Bean
+    @Primary
+    public PlatformTransactionManager masterTransactionManager(
+            @Qualifier("masterEntityManagerFactory") LocalContainerEntityManagerFactoryBean entityManagerFactory) {
+        return new JpaTransactionManager(entityManagerFactory.getObject());
+    }
+
+    // Transaction Manager para Slave
+    @Bean
+    public PlatformTransactionManager slaveTransactionManager(
+            @Qualifier("slaveEntityManagerFactory") LocalContainerEntityManagerFactoryBean entityManagerFactory) {
+        return new JpaTransactionManager(entityManagerFactory.getObject());
+    }
+}
+```
+
+### 4. Entidades JPA
+
+```java
+package com.example.entity;
+
+import jakarta.persistence.*;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "users")
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(unique = true, nullable = false)
+    private String username;
+
+    @Column(unique = true, nullable = false)
+    private String email;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    // Construtores
+    public User() {}
+
+    public User(String username, String email) {
+        this.username = username;
+        this.email = email;
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    // Getters e Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
+}
+
+@Entity
+@Table(name = "products")
+public class Product {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String name;
+
+    private String description;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal price;
+
+    @Column(name = "stock_quantity")
+    private Integer stockQuantity = 0;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    // Construtores
+    public Product() {}
+
+    public Product(String name, String description, BigDecimal price, Integer stockQuantity) {
+        this.name = name;
+        this.description = description;
+        this.price = price;
+        this.stockQuantity = stockQuantity;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    // Getters e Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+
+    public BigDecimal getPrice() { return price; }
+    public void setPrice(BigDecimal price) { this.price = price; }
+
+    public Integer getStockQuantity() { return stockQuantity; }
+    public void setStockQuantity(Integer stockQuantity) { this.stockQuantity = stockQuantity; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+}
+
+@Entity
+@Table(name = "orders")
+public class Order {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
+    @Column(name = "total_amount", nullable = false, precision = 12, scale = 2)
+    private BigDecimal totalAmount;
+
+    private String status = "PENDING";
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    // Construtores
+    public Order() {}
+
+    public Order(Long userId, BigDecimal totalAmount, String status) {
+        this.userId = userId;
+        this.totalAmount = totalAmount;
+        this.status = status;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    // Getters e Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+
+    public BigDecimal getTotalAmount() { return totalAmount; }
+    public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+}
+```
+
+### 5. Repositórios com Read/Write Splitting
+
+```java
+package com.example.repository;
+
+import com.example.entity.User;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.util.List;
+import java.util.Optional;
+
+// Repository para operações de escrita (Master)
+@Repository
+public interface UserWriteRepository extends JpaRepository<User, Long> {
+    // Operações de escrita vão automaticamente para o master
+}
+
+// Repository customizado para operações de leitura (Slave)
+@Repository
+public class UserReadRepository {
+
+    @PersistenceContext(unitName = "slaveEntityManagerFactory")
+    private EntityManager entityManager;
+
+    public List<User> findAll() {
+        return entityManager.createQuery("SELECT u FROM User u", User.class)
+                .getResultList();
+    }
+
+    public Optional<User> findById(Long id) {
+        User user = entityManager.find(User.class, id);
+        return Optional.ofNullable(user);
+    }
+
+    public Optional<User> findByEmail(String email) {
+        List<User> users = entityManager.createQuery(
+                "SELECT u FROM User u WHERE u.email = :email", User.class)
+                .setParameter("email", email)
+                .getResultList();
+        
+        return users.isEmpty() ? Optional.empty() : Optional.of(users.get(0));
+    }
+
+    public List<User> findByUsernameLike(String username) {
+        return entityManager.createQuery(
+                "SELECT u FROM User u WHERE u.username LIKE :username", User.class)
+                .setParameter("username", "%" + username + "%")
+                .getResultList();
+    }
+
+    public long count() {
+        return entityManager.createQuery("SELECT COUNT(u) FROM User u", Long.class)
+                .getSingleResult();
+    }
+}
+
+// Repository para Product com leitura/escrita
+@Repository
+public interface ProductWriteRepository extends JpaRepository<Product, Long> {
+}
+
+@Repository
+public class ProductReadRepository {
+
+    @PersistenceContext(unitName = "slaveEntityManagerFactory")
+    private EntityManager entityManager;
+
+    public List<Product> findAll() {
+        return entityManager.createQuery("SELECT p FROM Product p", Product.class)
+                .getResultList();
+    }
+
+    public Optional<Product> findById(Long id) {
+        Product product = entityManager.find(Product.class, id);
+        return Optional.ofNullable(product);
+    }
+
+    public List<Product> findByNameContaining(String name) {
+        return entityManager.createQuery(
+                "SELECT p FROM Product p WHERE p.name LIKE :name", Product.class)
+                .setParameter("name", "%" + name + "%")
+                .getResultList();
+    }
+
+    public List<Product> findByPriceBetween(BigDecimal minPrice, BigDecimal maxPrice) {
+        return entityManager.createQuery(
+                "SELECT p FROM Product p WHERE p.price BETWEEN :minPrice AND :maxPrice", Product.class)
+                .setParameter("minPrice", minPrice)
+                .setParameter("maxPrice", maxPrice)
+                .getResultList();
+    }
+}
+```
+
+### 6. Service Layer com Estratégia de Scaling
+
+```java
+package com.example.service;
+
+import com.example.entity.User;
+import com.example.repository.UserReadRepository;
+import com.example.repository.UserWriteRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class UserService {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
+
+    private final UserWriteRepository userWriteRepository;
+    private final UserReadRepository userReadRepository;
+
+    public UserService(UserWriteRepository userWriteRepository, UserReadRepository userReadRepository) {
+        this.userWriteRepository = userWriteRepository;
+        this.userReadRepository = userReadRepository;
+    }
+
+    // Operações de ESCRITA (vão para o Master)
+    @Transactional("masterTransactionManager")
+    public User createUser(String username, String email) {
+        logger.info("Creating user with username: {} (WRITE operation -> Master DB)", username);
+        
+        User user = new User(username, email);
+        return userWriteRepository.save(user);
+    }
+
+    @Transactional("masterTransactionManager")
+    public User updateUser(Long id, String username, String email) {
+        logger.info("Updating user with id: {} (WRITE operation -> Master DB)", id);
+        
+        Optional<User> existingUser = userWriteRepository.findById(id);
+        if (existingUser.isPresent()) {
+            User user = existingUser.get();
+            user.setUsername(username);
+            user.setEmail(email);
+            return userWriteRepository.save(user);
+        }
+        throw new RuntimeException("User not found with id: " + id);
+    }
+
+    @Transactional("masterTransactionManager")
+    public void deleteUser(Long id) {
+        logger.info("Deleting user with id: {} (WRITE operation -> Master DB)", id);
+        userWriteRepository.deleteById(id);
+    }
+
+    // Operações de LEITURA (vão para o Slave)
+    @Transactional(value = "slaveTransactionManager", readOnly = true)
+    public List<User> getAllUsers() {
+        logger.info("Fetching all users (READ operation -> Slave DB)");
+        return userReadRepository.findAll();
+    }
+
+    @Transactional(value = "slaveTransactionManager", readOnly = true)
+    public Optional<User> getUserById(Long id) {
+        logger.info("Fetching user by id: {} (READ operation -> Slave DB)", id);
+        return userReadRepository.findById(id);
+    }
+
+    @Transactional(value = "slaveTransactionManager", readOnly = true)
+    public Optional<User> getUserByEmail(String email) {
+        logger.info("Fetching user by email: {} (READ operation -> Slave DB)", email);
+        return userReadRepository.findByEmail(email);
+    }
+
+    @Transactional(value = "slaveTransactionManager", readOnly = true)
+    public List<User> searchUsersByUsername(String username) {
+        logger.info("Searching users by username: {} (READ operation -> Slave DB)", username);
+        return userReadRepository.findByUsernameLike(username);
+    }
+
+    @Transactional(value = "slaveTransactionManager", readOnly = true)
+    public long getUserCount() {
+        logger.info("Counting users (READ operation -> Slave DB)");
+        return userReadRepository.count();
+    }
+}
+
+@Service
+public class ProductService {
+
+    private static final Logger logger = LoggerFactory.getLogger(ProductService.class);
+
+    private final ProductWriteRepository productWriteRepository;
+    private final ProductReadRepository productReadRepository;
+
+    public ProductService(ProductWriteRepository productWriteRepository, ProductReadRepository productReadRepository) {
+        this.productWriteRepository = productWriteRepository;
+        this.productReadRepository = productReadRepository;
+    }
+
+    // Operações de ESCRITA
+    @Transactional("masterTransactionManager")
+    public Product createProduct(String name, String description, BigDecimal price, Integer stockQuantity) {
+        logger.info("Creating product: {} (WRITE operation -> Master DB)", name);
+        
+        Product product = new Product(name, description, price, stockQuantity);
+        return productWriteRepository.save(product);
+    }
+
+    @Transactional("masterTransactionManager")
+    public Product updateStock(Long productId, Integer newStock) {
+        logger.info("Updating stock for product id: {} (WRITE operation -> Master DB)", productId);
+        
+        Optional<Product> existingProduct = productWriteRepository.findById(productId);
+        if (existingProduct.isPresent()) {
+            Product product = existingProduct.get();
+            product.setStockQuantity(newStock);
+            return productWriteRepository.save(product);
+        }
+        throw new RuntimeException("Product not found with id: " + productId);
+    }
+
+    // Operações de LEITURA
+    @Transactional(value = "slaveTransactionManager", readOnly = true)
+    public List<Product> getAllProducts() {
+        logger.info("Fetching all products (READ operation -> Slave DB)");
+        return productReadRepository.findAll();
+    }
+
+    @Transactional(value = "slaveTransactionManager", readOnly = true)
+    public Optional<Product> getProductById(Long id) {
+        logger.info("Fetching product by id: {} (READ operation -> Slave DB)", id);
+        return productReadRepository.findById(id);
+    }
+
+    @Transactional(value = "slaveTransactionManager", readOnly = true)
+    public List<Product> searchProductsByName(String name) {
+        logger.info("Searching products by name: {} (READ operation -> Slave DB)", name);
+        return productReadRepository.findByNameContaining(name);
+    }
+
+    @Transactional(value = "slaveTransactionManager", readOnly = true)
+    public List<Product> getProductsByPriceRange(BigDecimal minPrice, BigDecimal maxPrice) {
+        logger.info("Fetching products in price range: {} - {} (READ operation -> Slave DB)", minPrice, maxPrice);
+        return productReadRepository.findByPriceBetween(minPrice, maxPrice);
+    }
+}
+```
+
+### 7. Controller REST
+
+```java
+package com.example.controller;
+
+import com.example.entity.Product;
+import com.example.entity.User;
+import com.example.service.ProductService;
+import com.example.service.UserService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api")
+public class ScalingController {
+
+    private final UserService userService;
+    private final ProductService productService;
+
+    public ScalingController(UserService userService, ProductService productService) {
+        this.userService = userService;
+        this.productService = productService;
+    }
+
+    // ===== USER ENDPOINTS =====
+
+    // READ Operations (vão para Slave)
+    @GetMapping("/users")
+    public ResponseEntity<List<User>> getAllUsers() {
+        List<User> users = userService.getAllUsers();
+        return ResponseEntity.ok(users);
+    }
+
+    @GetMapping("/users/{id}")
+    public ResponseEntity<User> getUserById(@PathVariable Long id) {
+        Optional<User> user = userService.getUserById(id);
+        return user.map(ResponseEntity::ok)
+                   .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/users/search")
+    public ResponseEntity<List<User>> searchUsers(@RequestParam String username) {
+        List<User> users = userService.searchUsersByUsername(username);
+        return ResponseEntity.ok(users);
+    }
+
+    @GetMapping("/users/count")
+    public ResponseEntity<Map<String, Long>> getUserCount() {
+        long count = userService.getUserCount();
+        return ResponseEntity.ok(Map.of("count", count));
+    }
+
+    // WRITE Operations (vão para Master)
+    @PostMapping("/users")
+    public ResponseEntity<User> createUser(@RequestBody Map<String, String> request) {
+        User user = userService.createUser(
+            request.get("username"), 
+            request.get("email")
+        );
+        return ResponseEntity.ok(user);
+    }
+
+    @PutMapping("/users/{id}")
+    public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        try {
+            User user = userService.updateUser(
+                id, 
+                request.get("username"), 
+                request.get("email")
+            );
+            return ResponseEntity.ok(user);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @DeleteMapping("/users/{id}")
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+        userService.deleteUser(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ===== PRODUCT ENDPOINTS =====
+
+    // READ Operations (vão para Slave)
+    @GetMapping("/products")
+    public ResponseEntity<List<Product>> getAllProducts() {
+        List<Product> products = productService.getAllProducts();
+        return ResponseEntity.ok(products);
+    }
+
+    @GetMapping("/products/{id}")
+    public ResponseEntity<Product> getProductById(@PathVariable Long id) {
+        Optional<Product> product = productService.getProductById(id);
+        return product.map(ResponseEntity::ok)
+                      .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/products/search")
+    public ResponseEntity<List<Product>> searchProducts(@RequestParam String name) {
+        List<Product> products = productService.searchProductsByName(name);
+        return ResponseEntity.ok(products);
+    }
+
+    @GetMapping("/products/price-range")
+    public ResponseEntity<List<Product>> getProductsByPriceRange(
+            @RequestParam BigDecimal minPrice, 
+            @RequestParam BigDecimal maxPrice) {
+        List<Product> products = productService.getProductsByPriceRange(minPrice, maxPrice);
+        return ResponseEntity.ok(products);
+    }
+
+    // WRITE Operations (vão para Master)
+    @PostMapping("/products")
+    public ResponseEntity<Product> createProduct(@RequestBody Map<String, Object> request) {
+        Product product = productService.createProduct(
+            (String) request.get("name"),
+            (String) request.get("description"),
+            new BigDecimal(request.get("price").toString()),
+            (Integer) request.get("stockQuantity")
+        );
+        return ResponseEntity.ok(product);
+    }
+
+    @PutMapping("/products/{id}/stock")
+    public ResponseEntity<Product> updateStock(@PathVariable Long id, @RequestBody Map<String, Integer> request) {
+        try {
+            Product product = productService.updateStock(id, request.get("stockQuantity"));
+            return ResponseEntity.ok(product);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    // ===== DEMO ENDPOINTS =====
+
+    @GetMapping("/demo/load-test")
+    public ResponseEntity<Map<String, Object>> loadTest() {
+        long startTime = System.currentTimeMillis();
+        
+        // Simula operações de leitura intensiva (vão para Slave)
+        List<User> users = userService.getAllUsers();
+        List<Product> products = productService.getAllProducts();
+        long userCount = userService.getUserCount();
+        
+        long endTime = System.currentTimeMillis();
+        long duration = endTime - startTime;
+        
+        return ResponseEntity.ok(Map.of(
+            "users_found", users.size(),
+            "products_found", products.size(),
+            "total_users", userCount,
+            "duration_ms", duration,
+            "message", "Operações de leitura executadas no Slave DB"
+        ));
+    }
+
+    @PostMapping("/demo/bulk-operations")
+    public ResponseEntity<Map<String, Object>> bulkOperations() {
+        long startTime = System.currentTimeMillis();
+        
+        // Simula operações de escrita (vão para Master)
+        User newUser = userService.createUser("test_user_" + System.currentTimeMillis(), "test@demo.com");
+        Product newProduct = productService.createProduct(
+            "Demo Product " + System.currentTimeMillis(),
+            "Demo description",
+            new BigDecimal("99.99"),
+            10
+        );
+        
+        long endTime = System.currentTimeMillis();
+        long duration = endTime - startTime;
+        
+        return ResponseEntity.ok(Map.of(
+            "created_user_id", newUser.getId(),
+            "created_product_id", newProduct.getId(),
+            "duration_ms", duration,
+            "message", "Operações de escrita executadas no Master DB"
+        ));
+    }
+}
+```
+
+### 8. Dockerfile
+
+```dockerfile
+FROM openjdk:17-jdk-slim
+
+WORKDIR /app
+
+# Copia arquivos de build
+COPY target/database-scaling-*.jar app.jar
+
+# Exponhe porta da aplicação
+EXPOSE 8080
+
+# Comando para executar a aplicação
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+
+### 9. Scripts de Teste
+
+Crie o arquivo `test-scaling.sh` para testar a aplicação:
+
+```bash
+#!/bin/bash
+
+echo "=== Testando Scaling de Leitura e Escrita ==="
+
+BASE_URL="http://localhost:8080/api"
+
+echo "1. Criando usuários (WRITE -> Master)..."
+curl -X POST $BASE_URL/users \
+  -H "Content-Type: application/json" \
+  -d '{"username":"alice","email":"alice@test.com"}'
+
+curl -X POST $BASE_URL/users \
+  -H "Content-Type: application/json" \
+  -d '{"username":"bob","email":"bob@test.com"}'
+
+echo -e "\n\n2. Criando produtos (WRITE -> Master)..."
+curl -X POST $BASE_URL/products \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Laptop Gaming","description":"High-end gaming laptop","price":2499.99,"stockQuantity":5}'
+
+echo -e "\n\n3. Aguardando replicação..."
+sleep 3
+
+echo -e "\n\n4. Lendo usuários (READ -> Slave)..."
+curl -X GET $BASE_URL/users
+
+echo -e "\n\n5. Lendo produtos (READ -> Slave)..."
+curl -X GET $BASE_URL/products
+
+echo -e "\n\n6. Contando usuários (READ -> Slave)..."
+curl -X GET $BASE_URL/users/count
+
+echo -e "\n\n7. Teste de carga (READ -> Slave)..."
+curl -X GET $BASE_URL/demo/load-test
+
+echo -e "\n\n8. Operações em massa (WRITE -> Master)..."
+curl -X POST $BASE_URL/demo/bulk-operations
+
+echo -e "\n\nTeste concluído!"
+```
+
+---
+
+## Testando a Solução
+
+### 1. Iniciando o Ambiente
+
+```bash
+# Clone ou crie o projeto
+git clone <seu-repositorio>
+cd database-scaling
+
+# Construa a aplicação
+mvn clean package -DskipTests
+
+# Inicie os containers
+docker-compose up -d
+
+# Aguarde alguns segundos para inicialização
+sleep 10
+
+# Execute os testes
+chmod +x test-scaling.sh
+./test-scaling.sh
+```
+
+### 2. Monitorando as Conexões
+
+```bash
+# Verificar conexões no Master
+docker exec -it postgres-master psql -U admin -d scalingdb -c "SELECT datname, usename, client_addr, state FROM pg_stat_activity WHERE datname='scalingdb';"
+
+# Verificar conexões no Slave
+docker exec -it postgres-slave psql -U admin -d scalingdb -c "SELECT datname, usename, client_addr, state FROM pg_stat_activity WHERE datname='scalingdb';"
+
+# Verificar status de replicação
+docker exec -it postgres-master psql -U admin -d scalingdb -c "SELECT client_addr, state, sync_state FROM pg_stat_replication;"
+```
+
+### 3. Testando Performance
+
+```bash
+# Teste de carga com Apache Bench (se disponível)
+ab -n 1000 -c 10 http://localhost:8080/api/users
+
+# Ou usar curl em loop
+for i in {1..100}; do
+  curl -X GET http://localhost:8080/api/demo/load-test &
+done
+wait
+```
+
+---
+
+## Vantagens do Scaling Implementado
+
+1. **Melhoria na Performance de Leitura:** Operações de leitura são distribuídas para o slave, reduzindo carga no master.
+
+2. **Escalabilidade Horizontal:** Pode adicionar múltiplos slaves conforme necessário.
+
+3. **Alta Disponibilidade:** Se o master falhar, o slave pode ser promovido.
+
+4. **Connection Pooling Otimizado:** HikariCP gerencia conexões eficientemente.
+
+5. **Transparência na Aplicação:** O roteamento é transparente para o código de negócio.
+
+6. **Monitoramento Integrado:** Spring Actuator permite monitorar pools de conexão.
+
+---
+
+## Desvantagens e Limitações
+
+1. **Complexidade Adicional:** Configuração e manutenção mais complexas.
+
+2. **Latência de Replicação:** Pode haver delay entre master e slave.
+
+3. **Consistência Eventual:** Leituras podem retornar dados levemente desatualizados.
+
+4. **Overhead de Infraestrutura:** Requer mais recursos de hardware.
+
+5. **Debugging Complexo:** Rastreamento de problemas é mais difícil.
+
+---
+
+## Quando evitar esta Abordagem?
+
+- Aplicações com operações críticas que requerem consistência forte.
+- Sistemas com mais escritas do que leituras.
+- Aplicações simples onde a complexidade não se justifica.
+- Quando recursos de infraestrutura são limitados.
+- Aplicações que não podem tolerar eventual consistency.
+
+---
+
+## Padrões Relacionados
+
+- **CQRS (Command Query Responsibility Segregation):** Separa modelos de leitura e escrita.
+- **Database Sharding:** Divisão horizontal de dados entre múltiplos bancos.
+- **Circuit Breaker Pattern:** Proteção contra falhas em cascata.
+- **Bulkhead Pattern:** Isolamento de recursos para evitar falhas sistêmicas.
+
+---
+
+## Conclusão
+
+O **scaling de leitura e escrita** em aplicações Spring Boot é uma estratégia poderosa para melhorar performance e disponibilidade. A implementação master-slave com connection pooling e roteamento automático de operações oferece benefícios significativos para aplicações com alta demanda de leitura.
+
+A chave para o sucesso está em entender quando aplicar esta estratégia, configurar adequadamente o ambiente e monitorar continuamente o desempenho. Com Docker e PostgreSQL, você pode facilmente testar e validar estas estratégias antes de implementar em produção.
+
+Lembre-se de que o scaling de banco de dados é uma área em constante evolução, e tecnologias como sharding automático, distributed databases e cloud-native solutions podem ser alternativas mais adequadas para casos específicos.
+
+---
+
+Gostou deste post? Continue acompanhando para mais conteúdos sobre **Spring Boot**, **performance** e **arquitetura de sistemas** escaláveis!
