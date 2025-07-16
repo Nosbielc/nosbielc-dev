@@ -64,38 +64,55 @@ services:
       POSTGRES_REPLICATION_PASSWORD: repl_password123
     volumes:
       - postgres_master_data:/var/lib/postgresql/data
-      - ./master-init.sql:/docker-entrypoint-initdb.d/master-init.sql
-      - ./postgresql-master.conf:/etc/postgresql/postgresql.conf
+      - ./master/master-init.sql:/docker-entrypoint-initdb.d/master-init.sql
+      - ./master/postgresql-master.conf:/etc/postgresql/postgresql.conf
+      - ./master/pg_hba.conf:/etc/postgresql/pg_hba.conf
     ports:
       - "5432:5432"
-    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf
     networks:
       - scaling-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d scalingdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # PostgreSQL Slave (Read Replica)
   postgres-slave:
-    image: postgres:15
+    build:
+      context: .
+      dockerfile: slave.Dockerfile
     container_name: postgres-slave
     environment:
+      POSTGRES_DB: scalingdb  # Adicionado para consistência
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: password123
       PGUSER: admin
+      POSTGRES_REPLICATION_USER: replicator  # Adicionado para replicação
+      POSTGRES_REPLICATION_PASSWORD: repl_password123  # Adicionado para replicação
     volumes:
       - postgres_slave_data:/var/lib/postgresql/data
-      - ./slave-init.sh:/docker-entrypoint-initdb.d/slave-init.sh
-      - ./postgresql-slave.conf:/etc/postgresql/postgresql.conf
     ports:
       - "5433:5432"
     depends_on:
-      - postgres-master
-    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+      postgres-master:
+        condition: service_healthy
+    command: [ "bash", "-c", "/replica-init.sh && docker-entrypoint.sh postgres -c config_file=/etc/postgresql/postgresql.conf" ]
     networks:
       - scaling-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U admin -d scalingdb" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
 
   # Aplicação Spring Boot
   spring-app:
-    build: .
-    container_name: scaling-spring-app
+    build:
+      context: .. # Sobe um nível para a pasta raiz
+      dockerfile: ./scaling-db-infra/Dockerfile # Caminho do Dockerfile dentro do novo contexto
+    container_name: spring-master-slave-postgres-demo-app
     environment:
       SPRING_PROFILES_ACTIVE: docker
       DB_MASTER_URL: jdbc:postgresql://postgres-master:5432/scalingdb
@@ -105,8 +122,10 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - postgres-master
-      - postgres-slave
+      postgres-master:
+        condition: service_healthy
+      postgres-slave:
+        condition: service_healthy
     networks:
       - scaling-network
 
@@ -130,10 +149,11 @@ port = 5432
 max_connections = 200
 shared_buffers = 256MB
 effective_cache_size = 1GB
+hot_standby = on
 
 # Configurações de Replicação
 wal_level = replica
-max_wal_senders = 3
+max_wal_senders = 10
 max_replication_slots = 3
 synchronous_commit = off
 synchronous_standby_names = ''
@@ -159,45 +179,45 @@ CREATE USER replicator WITH REPLICATION ENCRYPTED PASSWORD 'repl_password123';
 -- Este comando deve ser executado no container após inicialização
 -- Criando tabelas de exemplo para testes
 CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(100) NOT NULL UNIQUE,
+     id BIGSERIAL PRIMARY KEY,
+     username VARCHAR(100) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+    );
 
 CREATE TABLE IF NOT EXISTS products (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     price DECIMAL(10,2) NOT NULL,
     stock_quantity INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+    );
 
 CREATE TABLE IF NOT EXISTS orders (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id),
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT REFERENCES users(id),
     total_amount DECIMAL(12,2) NOT NULL,
     status VARCHAR(50) DEFAULT 'PENDING',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+    );
 
 -- Inserir dados de exemplo
-INSERT INTO users (username, email) VALUES 
-('john_doe', 'john@example.com'),
-('jane_smith', 'jane@example.com'),
-('bob_wilson', 'bob@example.com');
+INSERT INTO users (username, email)
+VALUES ('john_doe', 'john@example.com'),
+       ('jane_smith', 'jane@example.com'),
+       ('bob_wilson', 'bob@example.com');
 
-INSERT INTO products (name, description, price, stock_quantity) VALUES 
-('Laptop Dell XPS', 'High-performance laptop', 1299.99, 10),
-('Mouse Logitech', 'Wireless mouse', 29.99, 50),
-('Keyboard Mechanical', 'RGB mechanical keyboard', 89.99, 25);
+INSERT INTO products (name, description, price, stock_quantity)
+VALUES ('Laptop Dell XPS', 'High-performance laptop', 1299.99, 10),
+       ('Mouse Logitech', 'Wireless mouse', 29.99, 50),
+       ('Keyboard Mechanical', 'RGB mechanical keyboard', 89.99, 25);
 
-INSERT INTO orders (user_id, total_amount, status) VALUES 
-(1, 1329.98, 'COMPLETED'),
-(2, 29.99, 'PENDING'),
-(3, 119.98, 'PROCESSING');
+INSERT INTO orders (user_id, total_amount, status)
+VALUES (1, 1329.98, 'COMPLETED'),
+       (2, 29.99, 'PENDING'),
+       (3, 119.98, 'PROCESSING');
 
 -- Criar índices para performance
 CREATE INDEX idx_users_email ON users(email);
@@ -226,6 +246,7 @@ max_standby_archive_delay = 30s
 # Performance para leituras
 work_mem = 8MB
 effective_cache_size = 2GB
+primary_conninfo = 'host=postgres-master port=5432 user=replicator password=repl_password123'
 ```
 
 ### 5. Script de Inicialização do Slave
@@ -234,34 +255,15 @@ Crie o arquivo `slave-init.sh`:
 
 ```bash
 #!/bin/bash
-# slave-init.sh
-
 set -e
 
-# Aguarda o master estar disponível
-until pg_isready -h postgres-master -p 5432 -U admin; do
-  echo "Aguardando PostgreSQL master..."
-  sleep 2
-done
+echo "⏳ Running replica-init.sh..."
 
-# Remove dados existentes
 rm -rf /var/lib/postgresql/data/*
 
-# Faz backup do master
-pg_basebackup -h postgres-master -D /var/lib/postgresql/data -U replicator -v -P -W
+PGPASSWORD=repl_password123 pg_basebackup -h postgres-master -D /var/lib/postgresql/data -U replicator -v -P --write-recovery-conf
 
-# Cria arquivo de configuração de standby
-cat << EOF > /var/lib/postgresql/data/postgresql.auto.conf
-primary_conninfo = 'host=postgres-master port=5432 user=replicator password=repl_password123'
-primary_slot_name = 'slave_slot'
-EOF
-
-# Cria arquivo standby.signal
-touch /var/lib/postgresql/data/standby.signal
-
-# Ajusta permissões
-chown -R postgres:postgres /var/lib/postgresql/data
-chmod 700 /var/lib/postgresql/data
+echo "✅ Replica initialized. Starting PostgreSQL..."
 ```
 
 ---
@@ -274,69 +276,120 @@ Adicione as dependências necessárias no `pom.xml`:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.1.0</version>
-        <relativePath/>
+        <version>3.5.3</version>
+        <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    
-    <groupId>com.example</groupId>
-    <artifactId>database-scaling</artifactId>
-    <version>1.0.0</version>
-    <name>database-scaling</name>
-    <description>Database Scaling with Spring Boot</description>
-    
+    <groupId>com.nosbielc.dev</groupId>
+    <artifactId>spring-master-slave-postgres-demo</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>spring-master-slave-postgres-demo</name>
+    <description>spring-master-slave-postgres-demo</description>
     <properties>
         <java.version>17</java.version>
+        <spring-boot-admin.version>3.5.0</spring-boot-admin.version>
     </properties>
-    
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
-        
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
-        
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>de.codecentric</groupId>
+            <artifactId>spring-boot-admin-starter-server</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
-        
         <dependency>
             <groupId>com.zaxxer</groupId>
             <artifactId>HikariCP</artifactId>
         </dependency>
-        
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-actuator</artifactId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
         </dependency>
-        
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
-    
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>de.codecentric</groupId>
+                <artifactId>spring-boot-admin-dependencies</artifactId>
+                <version>${spring-boot-admin.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <build>
         <plugins>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.springframework.boot</groupId>
+                            <artifactId>spring-boot-configuration-processor</artifactId>
+                        </path>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
             </plugin>
         </plugins>
     </build>
+
 </project>
+
 ```
 
 ### 2. Configuração de Múltiplos DataSources
@@ -361,7 +414,7 @@ spring:
   
   datasource:
     master:
-      jdbc-url: jdbc:postgresql://localhost:5432/scalingdb
+      url: jdbc:postgresql://localhost:5432/scalingdb
       username: admin
       password: password123
       driver-class-name: org.postgresql.Driver
@@ -374,7 +427,7 @@ spring:
         max-lifetime: 1800000
     
     slave:
-      jdbc-url: jdbc:postgresql://localhost:5433/scalingdb
+      url: jdbc:postgresql://localhost:5433/scalingdb
       username: admin
       password: password123
       driver-class-name: org.postgresql.Driver
@@ -405,7 +458,7 @@ spring:
   
   datasource:
     master:
-      jdbc-url: ${DB_MASTER_URL}
+      url: ${DB_MASTER_URL}
       username: ${DB_USERNAME}
       password: ${DB_PASSWORD}
       driver-class-name: org.postgresql.Driver
@@ -418,7 +471,7 @@ spring:
         max-lifetime: 1800000
     
     slave:
-      jdbc-url: ${DB_SLAVE_URL}
+      url: ${DB_SLAVE_URL}
       username: ${DB_USERNAME}
       password: ${DB_PASSWORD}
       driver-class-name: org.postgresql.Driver
@@ -444,15 +497,17 @@ management:
 # Logging
 logging:
   level:
-    com.example: DEBUG
+    dev: DEBUG
     org.springframework.jdbc.core: DEBUG
+    org.springframework.core.env: DEBUG
     com.zaxxer.hikari: INFO
+    org.springframework.boot.autoconfigure.jdbc.DataSourceProperties: DEBUG
 ```
 
 ### 3. Configuração de DataSource
 
 ```java
-package com.example.config;
+package com.nosbielc.dev.config;
 
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -472,9 +527,9 @@ import java.util.Properties;
 
 @Configuration
 @EnableJpaRepositories(
-    basePackages = "com.example.repository",
-    entityManagerFactoryRef = "masterEntityManagerFactory",
-    transactionManagerRef = "masterTransactionManager"
+        basePackages = "com.nosbielc.dev.repository",
+        entityManagerFactoryRef = "masterEntityManagerFactory",
+        transactionManagerRef = "masterTransactionManager"
 )
 public class DatabaseConfig {
 
@@ -515,19 +570,19 @@ public class DatabaseConfig {
     @Primary
     public LocalContainerEntityManagerFactoryBean masterEntityManagerFactory(
             @Qualifier("masterDataSource") DataSource dataSource) {
-        
+
         LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
         em.setDataSource(dataSource);
-        em.setPackagesToScan("com.example.entity");
+        em.setPackagesToScan("com.nosbielc.dev.entity");
         em.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
-        
+
         Properties properties = new Properties();
         properties.setProperty("hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect");
         properties.setProperty("hibernate.hbm2ddl.auto", "validate");
         properties.setProperty("hibernate.show_sql", "false");
         properties.setProperty("hibernate.format_sql", "true");
         em.setJpaProperties(properties);
-        
+
         return em;
     }
 
@@ -535,19 +590,19 @@ public class DatabaseConfig {
     @Bean
     public LocalContainerEntityManagerFactoryBean slaveEntityManagerFactory(
             @Qualifier("slaveDataSource") DataSource dataSource) {
-        
+
         LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
         em.setDataSource(dataSource);
-        em.setPackagesToScan("com.example.entity");
+        em.setPackagesToScan("com.nosbielc.dev.entity");
         em.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
-        
+
         Properties properties = new Properties();
         properties.setProperty("hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect");
         properties.setProperty("hibernate.hbm2ddl.auto", "validate");
         properties.setProperty("hibernate.show_sql", "false");
         properties.setProperty("hibernate.format_sql", "true");
         em.setJpaProperties(properties);
-        
+
         return em;
     }
 
@@ -571,12 +626,9 @@ public class DatabaseConfig {
 ### 4. Entidades JPA
 
 ```java
-package com.example.entity;
-
-import jakarta.persistence.*;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-
+@Data
+@AllArgsConstructor
+@RequiredArgsConstructor
 @Entity
 @Table(name = "users")
 public class User {
@@ -628,6 +680,8 @@ public class User {
     }
 }
 
+@Data
+@RequiredArgsConstructor
 @Entity
 @Table(name = "products")
 public class Product {
@@ -680,6 +734,8 @@ public class Product {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }
 
+@Data
+@RequiredArgsConstructor
 @Entity
 @Table(name = "orders")
 public class Order {
@@ -729,19 +785,6 @@ public class Order {
 ### 5. Repositórios com Read/Write Splitting
 
 ```java
-package com.example.repository;
-
-import com.example.entity.User;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
-
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import java.util.List;
-import java.util.Optional;
 
 // Repository para operações de escrita (Master)
 @Repository
@@ -829,19 +872,6 @@ public class ProductReadRepository {
 ### 6. Service Layer com Estratégia de Scaling
 
 ```java
-package com.example.service;
-
-import com.example.entity.User;
-import com.example.repository.UserReadRepository;
-import com.example.repository.UserWriteRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.Optional;
-
 @Service
 public class UserService {
 
@@ -981,20 +1011,6 @@ public class ProductService {
 ### 7. Controller REST
 
 ```java
-package com.example.controller;
-
-import com.example.entity.Product;
-import com.example.entity.User;
-import com.example.service.ProductService;
-import com.example.service.UserService;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
 @RestController
 @RequestMapping("/api")
 public class ScalingController {
@@ -1171,10 +1187,13 @@ public class ScalingController {
 ```dockerfile
 FROM openjdk:17-jdk-slim
 
+# Define o nome do container
+LABEL container.name="spring-master-slave-postgres-demo-app"
+
 WORKDIR /app
 
 # Copia arquivos de build
-COPY target/database-scaling-*.jar app.jar
+COPY target/spring-master-slave-postgres-demo-*.jar app.jar
 
 # Exponhe porta da aplicação
 EXPOSE 8080
@@ -1237,21 +1256,21 @@ echo -e "\n\nTeste concluído!"
 
 ```bash
 # Clone ou crie o projeto
-git clone <seu-repositorio>
-cd database-scaling
+git clone git@github.com:Nosbielc/nosbielc-dev-demos
+cd spring-master-slave-postgres-demo
 
 # Construa a aplicação
 mvn clean package -DskipTests
 
 # Inicie os containers
-docker-compose up -d
+./scalling-db-infra/docker-compose up -d
 
 # Aguarde alguns segundos para inicialização
 sleep 10
 
 # Execute os testes
-chmod +x test-scaling.sh
-./test-scaling.sh
+chmod +x ./test-batch/test-scaling.sh
+./test-batch/test-scaling.sh
 ```
 
 ### 2. Monitorando as Conexões
@@ -1270,14 +1289,9 @@ docker exec -it postgres-master psql -U admin -d scalingdb -c "SELECT client_add
 ### 3. Testando Performance
 
 ```bash
-# Teste de carga com Apache Bench (se disponível)
-ab -n 1000 -c 10 http://localhost:8080/api/users
-
-# Ou usar curl em loop
-for i in {1..100}; do
-  curl -X GET http://localhost:8080/api/demo/load-test &
-done
-wait
+# Execute os testes
+chmod +x ./test-batch/test-benchmark.sh
+./test-batch/test-benchmark.sh
 ```
 
 ---
