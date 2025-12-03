@@ -1,0 +1,48 @@
+A sua solicitação é listar os 10 livros recomendados no vídeo e resumir a proposta de cada um, em português do Brasil.
+
+O palestrante indica os livros em uma ordem correta de leitura e os separa por categorias, que servem para consolidar a carreira e preparar o profissional para desafios avançados [1, 2].
+
+Aqui está a lista completa:
+
+## Categoria: Fundação (Alicerce da Carreira)
+
+Esta categoria contém os primeiros livros a serem lidos e que servem como base para consolidar a carreira [2]. Eles ensinam a pensar e a desenvolver a mentalidade de programação [2].
+
+*1. O Programador Pragmático (The Pragmatic Programmer)*
+Este é considerado o primeiro livro que todo programador deve ler [3]. Ele trata da *mentalidade por trás do código, não de linguagens, *frameworks ou tecnologias da moda [3]. O livro ensina que programar é assumir responsabilidade e *tomar decisões constantes, entendendo o *porquê e as consequências de cada uma [3]. Também instrui sobre como ser resiliente em ambientes hostis, destacando que o desenvolvedor tem a *obrigação profissional de comunicar* quando um cronograma é irreal, pois concordar com o impossível significa aceitar o impossível [3, 4]. Além disso, transmite boas práticas e princípios atemporais como *KISS, DRY e Agile, e a técnica japonesa do **Kaizen* (melhoria contínua) [4].
+
+*2. 14 Hábitos de Desenvolvedores Altamente Produtivos (14 Habits of Highly Productive Developers)*
+Escrito pelo brasileiro Zeno Rocha, este livro tem um *poder de transformação absurdo* [5]. Ele revela os *hábitos sólidos* que transformam um programador comum em um profissional muito acima da média [5, 6]. O leitor aprende a criar *disciplina, ritmo e constância* [6]. O livro aborda o controle de variáveis pessoais, como *sono, ambiente, foco, distração e energia, e como esses fatores externos afetam a *performance dentro do computador [6].
+
+## Categoria: Livros Intermediários (Diferencial Competitivo)
+
+Esta é a categoria mais importante, pois representa o *diferencial competitivo* no mercado, sendo o 80/20 (80% do resultado necessário virá unicamente destes livros) [7].
+
+*3. Fundamentos de Arquitetura de Software (Software Architecture Fundamentals)*
+Este livro ensina os *pilares e fundamentos da verdadeira arquitetura de software* [8]. Aborda atributos essenciais como *escalabilidade, performance, segurança, disponibilidade, tolerância à falha e testabilidade* [8]. Ele liberta o leitor da paranoia de que existe a "melhor" arquitetura, ensinando que *toda arquitetura envolve escolhas e *tradeoffs* (compromissos), e o que realmente existe é a arquitetura adequada ao contexto [9]. É fundamental para aprender a **pensar como um arquiteto de software*, focando nos impactos das decisões e das tecnologias escolhidas [9].
+
+*4. Domain Driven Design (Vlad Cononov)*
+Este livro é recomendado por ser o mais *objetivo e direto ao ponto* sobre *Domain Driven Design (DDD)* [10, 11]. Ele ensina tudo o que é necessário para modelar, projetar e desenvolver software focando no *domínio da aplicação* (o coração do negócio) [11]. Abrange a *modelagem tática, estratégica, a linguagem ubíqua e os *bounded contexts** (contextos delimitados), que são a base para trabalhar com microserviços [12].
+
+*5. Arquitetura de Software as Partes Difíceis (Software Architecture: The Hard Parts)*
+Este livro ensina sobre arquitetura de software na *vida real, onde os sistemas não são perfeitos e "merdas acontecem" [13]. O foco é lidar com os problemas que só surgem fora da teoria, como sistemas "Frankstein" [13, 14]. Ensina os *tradeoffs dolorosos** que precisam ser feitos, muitas vezes tendo que escolher entre duas opções ruins [14]. Aborda aspectos técnicos como comunicação síncrona/assíncrona, filas de mensageria, e *padrões de migração de monólito para microserviços* sem destruir o sistema [14]. É considerado a *mistura perfeita entre programação, DDD e arquitetura de *software** [15].
+
+## Categoria: Livros Avançados (Especialização)
+
+Nesta categoria, o leitor se especializa e aprofunda os assuntos aprendidos, e os conteúdos começam a se conectar [15, 16].
+
+*6. Criando Microserviços (Building Microservices, por Sam Newman)*
+Este livro ensina o que os microserviços *realmente são* [16]. Eles não são apenas pequenos serviços, mas sim sobre *limites bem definidos, autonomia, independência, ciclos mais curtos e evolução rápida* [16]. O autor enfatiza que microserviços *não resolvem desorganização, falta de *design ou incompetência técnica** [17]. O livro ensina a construir microserviços de verdade, incluindo *deploy independente, monitoramento, *circuit break, fallback*, e como **evitar o "monólito distribuído"* (que acontece quando se cria uma porrada de APIs soltas se comunicando via HTTP síncrono) [17].
+
+*7. & 8. System Design Interview Volume 1 e System Design Interview Volume 2*
+Estes dois livros são considerados o ponto mais alto da carreira técnica e o melhor conteúdo que o palestrante já leu [18]. Eles são cruciais para entender *como as grandes empresas operam, escalam e projetam arquiteturas* que atendem milhões de usuários sem quebrar [19]. Eles ensinam a *projetar uma arquitetura do zero* para suportar tráfego real, incluindo *cálculo de capacidade, previsão de gargalos e todos os *tradeoffs envolvidos [19]. Detalham os *blocos de construção (*building blocks)* dos sistemas, como **cache, CDN, *load balancer, filas de mensageria e bancos de dados** [19].
+
+*9. Engenharia do Caos (Chaos Engineering)*
+Partindo da premissa de que os sistemas sempre falharão e quebrarão [20], este livro trata de uma nova forma de pensar a engenharia: a *Engenharia do Caos* [21]. Consiste em aplicar o *método científico à arquitetura de *software*: criar uma hipótese, **injetar falha no sistema* (provocar o caos), observar o comportamento real, medir o impacto e fortalecer o sistema [21]. Revela que redundância mal projetada apenas duplica o problema e não aumenta a resiliência [21]. É o estilo de engenharia que revolucionou a forma como Amazon, Google, Netflix e Uber testam seus sistemas, tornando-os mais robustos e confiáveis [21, 22].
+
+## Categoria: Lendários
+
+Este livro é colocado em uma categoria separada, não técnica [22].
+
+*10. Como fazer amigos e influenciar pessoas (How to Win Friends and Influence People)*
+É considerado o *livro mais importante para a vida* [23]. À medida que o profissional avança na carreira e assume responsabilidades maiores (arquitetura, decisões), ele precisa cada vez mais *lidar com pessoas* [23, 24]. Este livro é *soft skill pura, ensinando **oratória e comunicação* [25]. É essencial para saber *vender uma ideia* (como a refatoração de um sistema) a gestores ou CTOs que estão preocupados com receita e faturamento [25]. Sem essas habilidades, o sucesso técnico não pode ser sustentado [25, 26].
