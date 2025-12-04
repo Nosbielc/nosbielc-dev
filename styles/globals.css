@@ -15,3 +15,70 @@ h6 {
 body {
   font-family: var(--font-secondary);
 }
+
+/* Responsividade para blocos de código */
+pre {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 1rem 0;
+  border-radius: 0.5rem;
+}
+
+pre code {
+  display: block;
+  padding: 1rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: pre;
+  word-wrap: normal;
+  overflow-wrap: normal;
+}
+
+/* Ajustes para mobile */
+@media (max-width: 768px) {
+  pre {
+    margin: 1rem -1rem;
+    border-radius: 0;
+  }
+  
+  pre code {
+    font-size: 0.75rem;
+    padding: 0.75rem;
+    line-height: 1.4;
+  }
+}
+
+@media (max-width: 480px) {
+  pre code {
+    font-size: 0.7rem;
+    padding: 0.5rem;
+  }
+}
+
+/* Garantir que código inline não quebre o layout */
+code {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+p code,
+li code {
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+}
+
+/* Wrapper para conteúdo MDX */
+article,
+.prose {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+article pre,
+.prose pre {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
